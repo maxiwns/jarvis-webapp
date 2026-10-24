@@ -1,0 +1,215 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width,initial-scale=1">
+  <title>JARVIS 0.8 – KI-Zentrale</title>
+
+  <style>
+    :root {
+      font-family: Inter, system-ui, sans-serif;
+      background: #08101e;
+      color: #eaf2ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body { margin: 0; }
+
+    header {
+      padding: 20px;
+      border-bottom: 1px solid #27354b;
+    }
+
+    h1 { margin: 0; font-size: 25px; }
+    h2 { font-size: 18px; }
+
+    main {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #101e32;
+      border: 1px solid #293e59;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .muted {
+      color: #9baec8;
+      line-height: 1.6;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 10px;
+      background: #20395a;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #b8d4ff;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      background: #0d192b;
+      color: #eaf2ff;
+      border: 1px solid #344a67;
+      border-radius: 12px;
+      padding: 15px;
+      font: inherit;
+      resize: vertical;
+    }
+
+    button {
+      background: #2469dd;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 18px;
+      margin-top: 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .result {
+      min-height: 100px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.7;
+    }
+
+    .notice {
+      background: #27261a;
+      border: 1px solid #74662c;
+      color: #f2dda3;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>◈ JARVIS <span class="pill">0.8 TEST</span></h1>
+    <p class="muted">Deine persönliche KI-Zentrale</p>
+  </header>
+
+  <main>
+    <div class="notice">
+      Entwicklungsversion:
+      Die KI-Anbindung ist noch nicht aktiviert.
+      Bitte keine vertraulichen Daten eingeben.
+      Es werden noch keine Aufträge versendet.
+    </div>
+
+    <div class="card">
+      <h2>◈ Systemstatus</h2>
+      <p id="systemStatus">
+        Backend-Verbindung noch nicht geprüft
+      </p>
+      <p class="muted" id="aiStatus">
+        KI-Zugriff über Web-App noch nicht eingerichtet
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>◈ Neuer Auftrag</h2>
+
+      <p class="muted">
+        Beschreibe, was JARVIS für dich erledigen soll.
+      </p>
+
+      <textarea id="auftrag"
+        maxlength="2000"
+        placeholder="JARVIS, erstelle mir einen Arbeitsplan für ...">
+      </textarea>
+
+      <button id="planButton" onclick="planen()">
+        ◈ Arbeitsplan erstellen
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>◈ JARVIS Antwort</h2>
+      <div id="antwort" class="result muted">
+        Hier wird später dein KI-Arbeitsplan angezeigt.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API =
+      "https://jarvis-backend.maxiwiens.workers.dev";
+
+    const auftragFeld =
+      document.getElementById("auftrag");
+
+    const antwortFeld =
+      document.getElementById("antwort");
+
+    async function pruefeBackend() {
+      const status =
+        document.getElementById("systemStatus");
+
+      status.textContent = "Verbindung wird geprüft ...";
+
+      try {
+        const response = await fetch(
+          API + "/api/status",
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (data.status === "online") {
+          status.textContent =
+            "Backend: Online (JARVIS " +
+            data.version + ")";
+        } else {
+          status.textContent =
+            "Backend: Status nicht bestätigt";
+        }
+      } catch {
+        status.textContent =
+          "Backend nicht erreichbar oder CORS blockiert";
+      }
+    }
+
+    function planen() {
+      const auftrag = auftragFeld.value.trim();
+
+      if (!auftrag) {
+        antwortFeld.textContent =
+          "Bitte zuerst einen Auftrag eingeben.";
+        return;
+      }
+
+      antwortFeld.textContent =
+        "Dein Auftrag ist vorbereitet:\n\n" +
+        auftrag +
+        "\n\nDie sichere KI-Verbindung wird " +
+        "im nächsten Entwicklungsschritt ergänzt. " +
+        "Es wurde noch keine KI-Anfrage gesendet.";
+    }
+
+    pruefeBackend();
+  </script>
+</body>
+</html>
