@@ -203,7 +203,12 @@
         
 if (!response.ok) {
   const errorData = await response.json();
-  throw new Error(errorData.error || "Login failed");
+  throw new Error(
+  errorData.error +
+  (errorData.missing?.length
+    ? ": " + errorData.missing.join(", ")
+    : "")
+);
 }
 
 
