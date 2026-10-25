@@ -82,16 +82,20 @@ export async function onRequestPost(context) {
   }
 
   // Ohne Secrets keine Anmeldung
-  if (
-    !env.JARVIS_LOGIN_PASSWORD ||
-    !env.JARVIS_SESSION_SECRET ||
-    !env.TURNSTILE_SECRET_KEY
-  ) {
-    return respond(
-      { error: "Login not configured" },
-      503
-    );
-  }
+  
+const missing = [
+  "JARVIS_LOGIN_PASSWORD",
+  "JARVIS_SESSION_SECRET",
+  "TURNSTILE_SECRET_KEY"
+].filter(name => !env[name]);
+
+if (missing.length > 0) {
+  return respond({
+    error: "Login not configured",
+    missing
+  }, 503);
+}
+
 
   const contentType =
     request.headers.get("Content-Type") || "";
