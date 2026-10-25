@@ -1,0 +1,226 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width,initial-scale=1">
+
+  <title>JARVIS 0.8 – Anmeldung</title>
+
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async defer>
+  </script>
+
+  <style>
+    :root {
+      font-family: Inter, system-ui, sans-serif;
+      background: #08101e;
+      color: #eaf2ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .login {
+      width: 100%;
+      max-width: 420px;
+      background: #101e32;
+      border: 1px solid #293e59;
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #9baec8;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      background: #0d192b;
+      border: 1px solid #344a67;
+      color: white;
+      padding: 14px;
+      border-radius: 10px;
+      font: inherit;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      background: #2469dd;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      padding: 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: wait;
+    }
+
+    #message {
+      margin-top: 20px;
+      color: #ffb4b4;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    .badge {
+      background: #20395a;
+      color: #b8d4ff;
+      border-radius: 20px;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .turnstile {
+      margin-top: 22px;
+      display: flex;
+      justify-content: center;
+    }
+
+    small {
+      display: block;
+      margin-top: 25px;
+      text-align: center;
+      color: #9baec8;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login">
+    <h1>◈ JARVIS <span class="badge">0.8</span></h1>
+
+    <p class="subtitle">
+      Persönlicher KI-Assistent
+      <br>
+      Geschützter Zugang
+    </p>
+
+    <form id="loginForm">
+      <label for="password">
+        JARVIS Zugangspasswort
+      </label>
+
+      <input
+        type="password"
+        id="password"
+        autocomplete="current-password"
+        required
+        maxlength="256"
+        placeholder="Passwort eingeben">
+
+      <div class="turnstile">
+        <div
+          class="cf-turnstile"
+          data-sitekey="0x4AAAAAAFlRYWMJjQEx8x7e"
+          data-action="login"
+          data-theme="dark">
+        </div>
+      </div>
+
+      <button id="loginButton" type="submit">
+        Bei JARVIS anmelden
+      </button>
+    </form>
+
+    <div id="message" role="status"
+         aria-live="polite"></div>
+
+    <small>
+      JARVIS 0.8 · Private Testversion
+    </small>
+  </main>
+
+  <script>
+    const form =
+      document.getElementById("loginForm");
+
+    const button =
+      document.getElementById("loginButton");
+
+    const message =
+      document.getElementById("message");
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const password =
+        document.getElementById("password").value;
+
+      const token =
+        window.turnstile?.getResponse();
+
+      if (!token) {
+        message.textContent =
+          "Bitte Sicherheitsprüfung abschließen.";
+        return;
+      }
+
+      button.disabled = true;
+      message.textContent = "Anmeldung wird geprüft ...";
+
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            password,
+            turnstileToken: token
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Login failed");
+        }
+
+        message.style.color = "#79dfae";
+        message.textContent =
+          "Anmeldung erfolgreich.";
+
+        window.location.replace("/ai-test.html");
+
+      } catch {
+        message.style.color = "#ffb4b4";
+        message.textContent =
+          "Anmeldung fehlgeschlagen. " +
+          "Bitte Eingaben überprüfen.";
+
+        window.turnstile?.reset();
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
