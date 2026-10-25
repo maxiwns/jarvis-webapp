@@ -8,9 +8,7 @@ export async function onRequestGet({ request, env }) {
   );
 
   return Response.json(
-    authenticated
-      ? { authenticated: true }
-      : { authenticated: false },
+    { authenticated },
     {
       status: authenticated ? 200 : 401,
       headers: {
