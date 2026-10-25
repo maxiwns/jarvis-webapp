@@ -200,9 +200,12 @@
           })
         });
 
-        if (!response.ok) {
-          throw new Error("Login failed");
-        }
+        
+if (!response.ok) {
+  const errorData = await response.json();
+  throw new Error(errorData.error || "Login failed");
+}
+
 
         message.style.color = "#79dfae";
         message.textContent =
@@ -210,11 +213,10 @@
 
         window.location.replace("/ai-test.html");
 
-      } catch {
+      } catch (error) {
+        message.textContent = error.message;
         message.style.color = "#ffb4b4";
-        message.textContent =
-          "Anmeldung fehlgeschlagen. " +
-          "Bitte Eingaben überprüfen.";
+        
 
         window.turnstile?.reset();
       } finally {
