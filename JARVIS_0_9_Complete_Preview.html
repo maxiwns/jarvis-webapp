@@ -157,4 +157,97 @@ $('#import-data').onchange=async e=>{let file=e.target.files?.[0];if(!file)retur
 
 load();renderNav();paint();renderOrders();renderNotes();renderActivity();
 })();
-</script></body></html>
+
+</script>
+
+<script>
+(() => {
+  const input = document.getElementById("chat-input");
+  const taskButton = document.getElementById("chat-to-task");
+  const hint = document.getElementById("chat-hint");
+
+  if (!input || !taskButton || !hint) return;
+
+  const sendButton = document.createElement("button");
+  sendButton.type = "button";
+  sendButton.className = "btn primary";
+  sendButton.textContent = "An JARVIS senden";
+
+  const output = document.createElement("div");
+  output.className = "panel";
+  output.style.padding = "18px";
+  output.style.marginTop = "16px";
+  output.style.whiteSpace = "pre-wrap";
+  output.style.overflowWrap = "anywhere";
+  output.setAttribute("aria-live", "polite");
+  output.textContent = "JARVIS ist bereit.";
+
+  taskButton.before(sendButton);
+  taskButton.parentElement.after(output);
+
+  hint.textContent =
+    "Llama 3.1 ist über den geschützten KI-Router erreichbar.";
+
+  sendButton.addEventListener("click", async () => {
+    const message = input.value.trim();
+
+    if (message.length < 5 || message.length > 2000) {
+      output.textContent =
+        "Bitte 5 bis 2000 Zeichen eingeben.";
+      return;
+    }
+
+    const selected =
+      document.querySelector('input[name="model"]:checked')
+        ?.value || "llama";
+
+    const model = selected === "llama" ||
+                  selected === "auto"
+                    ? selected
+                    : null;
+
+    if (!model) {
+      output.textContent =
+        "Dieses KI-Modell ist noch nicht verbunden. " +
+        "Wähle Llama 3.1 oder Automatisch.";
+      return;
+    }
+
+    sendButton.disabled = true;
+    sendButton.textContent = "JARVIS denkt ...";
+    output.textContent = "Anfrage wird verarbeitet ...";
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message, model })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "KI-Anfrage fehlgeschlagen"
+        );
+      }
+
+      output.textContent =
+        data.reply || "Keine Antwort erhalten.";
+
+    } catch (error) {
+      output.textContent =
+        "Fehler: " + error.message;
+    } finally {
+      sendButton.disabled = false;
+      sendButton.textContent = "An JARVIS senden";
+    }
+  });
+})();
+</script>
+</body>
+</html>
+
