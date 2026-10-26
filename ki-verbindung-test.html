@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+<title>JARVIS – KI-Verbindungstest</title>
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+  padding: 24px;
+  max-width: 650px;
+  margin: auto;
+}
+textarea, button {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border-radius: 10px;
+  font: inherit;
+}
+textarea {
+  background: #222;
+  border: 1px solid #555;
+  color: white;
+  min-height: 100px;
+}
+button {
+  margin-top: 12px;
+  background: white;
+  color: black;
+  border: 0;
+  font-weight: bold;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #222;
+  padding: 16px;
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+<h2>JARVIS – KI-Verbindungstest</h2>
+<p>Aktives Modell: Llama 3.1</p>
+
+<textarea id="message">Erstelle einen kurzen Plan mit drei Schritten, wie ich meinen Tag organisieren kann.</textarea>
+
+<button id="send">KI testen</button>
+<pre id="output">Noch keine Anfrage gesendet.</pre>
+
+<script>
+const button = document.getElementById("send");
+const output = document.getElementById("output");
+
+button.addEventListener("click", async () => {
+  button.disabled = true;
+  output.textContent = "JARVIS denkt ...";
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: document.getElementById("message").value,
+        model: "auto"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      output.textContent =
+        "Fehler " + response.status + ": " +
+        (data.error || "Unbekannt");
+      return;
+    }
+
+    output.textContent = data.reply ||
+      "Keine KI-Antwort erhalten.";
+  } catch (error) {
+    output.textContent =
+      "Verbindungsfehler: " + error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
