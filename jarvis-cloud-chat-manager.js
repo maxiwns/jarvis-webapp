@@ -203,7 +203,7 @@ row.style.alignItems = "center";
 button.style.flex = "1";
 button.style.minWidth = "0";
 
-const remove = node("button", "btn quiet", "×");
+const remove = node("button", "btn quiet", "🗑");
 remove.type = "button";
 remove.title = "Chat löschen";
 remove.setAttribute(
@@ -261,7 +261,7 @@ remove.onclick = async () => {
   }
 };
 
-row.append(button, remove);
+row.append(remove, button);
 list.append(row);
 
     }
