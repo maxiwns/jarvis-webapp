@@ -508,4 +508,223 @@ try {
     .catch(error => {
       setStatus("Cloud-Verbindung fehlgeschlagen: " + error.message);
     });
+  
+// JARVIS – Feste Chatansicht und Wisch-Navigation
+
+const chatLayoutStyle = node("style");
+
+chatLayoutStyle.textContent = `
+  body.jarvis-chat-active {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  body.jarvis-chat-active #chat {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #jarvis-cloud-manager {
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 230px minmax(0, 1fr);
+    transition: grid-template-columns 0.22s ease;
+  }
+
+  #jarvis-cloud-manager .jcm-panel {
+    min-height: 0;
+  }
+
+  #jarvis-cloud-manager .jcm-panel:first-child {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #jarvis-cloud-manager .jcm-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #jarvis-cloud-manager .jcm-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #jarvis-cloud-manager .jcm-messages {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #jarvis-cloud-manager textarea {
+    flex-shrink: 0;
+  }
+
+  #jarvis-cloud-manager .jcm-main > .line {
+    flex-shrink: 0;
+  }
+
+  #jarvis-cloud-manager.jcm-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #jarvis-cloud-manager.jcm-collapsed
+  > .jcm-panel:first-child {
+    display: none;
+  }
+
+  @media (max-width: 700px) {
+    #jarvis-cloud-manager {
+      grid-template-columns: minmax(130px, 36%) minmax(0, 1fr);
+    }
+
+    #jarvis-cloud-manager.jcm-collapsed {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+`;
+
+document.head.append(chatLayoutStyle);
+
+// Kein Button: Chatliste nur per Wischgeste steuern.
+let chatSidebarCollapsed = false;
+
+function setChatSidebar(collapsed) {
+  chatSidebarCollapsed = collapsed;
+
+  root.classList.toggle(
+    "jcm-collapsed",
+    collapsed
+  );
+
+  root.setAttribute(
+    "data-sidebar-collapsed",
+    String(collapsed)
+  );
+}
+
+// Start: Chatliste bleibt links sichtbar.
+setChatSidebar(false);
+
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartedInSidebar = false;
+let touchStartedAtChatEdge = false;
+
+root.addEventListener("touchstart", event => {
+  if (event.touches.length !== 1) return;
+
+  const touch = event.touches[0];
+  const bounds = root.getBoundingClientRect();
+
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+
+  touchStartedInSidebar =
+    !chatSidebarCollapsed &&
+    side.contains(event.target);
+
+  // Innerhalb des Chatbereichs, nicht am äußersten
+  // Safari-Bildschirmrand beginnen.
+  touchStartedAtChatEdge =
+    chatSidebarCollapsed &&
+    touchStartX >= bounds.left + 15 &&
+    touchStartX <= bounds.left + 80;
+
+}, { passive: true });
+
+root.addEventListener("touchend", event => {
+  if (!event.changedTouches.length) return;
+
+  const touch = event.changedTouches[0];
+
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
+
+  // Vertikales Scrollen darf kein Menü auslösen.
+  if (
+    Math.abs(dx) < 65 ||
+    Math.abs(dx) < Math.abs(dy) * 1.5
+  ) return;
+
+  // Nach links auf der Seitenleiste = schließen
+  if (!chatSidebarCollapsed &&
+      touchStartedInSidebar &&
+      dx < -65) {
+    setChatSidebar(true);
+  }
+
+  // Nach rechts am linken Chatrand = öffnen
+  if (chatSidebarCollapsed &&
+      touchStartedAtChatEdge &&
+      dx > 65) {
+    setChatSidebar(false);
+  }
+
+}, { passive: true });
+
+// Verfügbare Bildschirmhöhe für den Chat berechnen.
+function resizeJarvisChat() {
+  if (page.hidden) return;
+
+  const bottomNav = document.getElementById("bottomnav");
+
+  const bottomHeight =
+    bottomNav &&
+    getComputedStyle(bottomNav).display !== "none"
+      ? bottomNav.getBoundingClientRect().height
+      : 0;
+
+  const top = root.getBoundingClientRect().top;
+  const available =
+    window.innerHeight - top - bottomHeight - 10;
+
+  root.style.height =
+    Math.max(180, available) + "px";
+
+  root.style.maxHeight =
+    Math.max(180, available) + "px";
+}
+
+function syncJarvisChatLayout() {
+  const visible = !page.hidden;
+
+  document.body.classList.toggle(
+    "jarvis-chat-active",
+    visible
+  );
+
+  if (visible) {
+    resizeJarvisChat();
+  } else {
+    root.style.height = "";
+    root.style.maxHeight = "";
+  }
+}
+
+// Bei Seitenwechsel und Bildschirmgrößenänderung.
+const chatVisibilityObserver = new MutationObserver(
+  syncJarvisChatLayout
+);
+
+chatVisibilityObserver.observe(page, {
+  attributes: true,
+  attributeFilter: ["hidden"]
+});
+
+window.addEventListener(
+  "resize",
+  syncJarvisChatLayout
+);
+
+syncJarvisChatLayout();
+
 })();
