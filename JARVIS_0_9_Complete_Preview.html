@@ -389,7 +389,195 @@ let today=new Date().toLocaleDateString('sv-SE');let h=new Date().getHours();$('
 try{if(h>=5&&h<12&&localStorage.getItem(BRIEF_KEY)!==today)$('#brief-panel').open=true}catch{}$('#brief-dismiss').onclick=()=>{try{localStorage.setItem(BRIEF_KEY,today)}catch{}$('#brief-panel').open=false};$('#brief-reopen').onclick=()=>{$('#brief-panel').open=true;show('dashboard')};
 const modelNames={llama:'Llama 3.1',auto:'Automatisch (später)',gpt:'OpenAI GPT (später)',claude:'Claude (später)',local:'Lokale KI (später)'};$$('input[name="model"]').forEach(r=>r.onchange=()=>{try{localStorage.setItem('jarvis09_model_choice',r.value)}catch{};$('#model-message').textContent=r.value==='llama'?'Das echte Backend bleibt Llama 3.1.':'Nur vorgemerkte Designauswahl. Kein Providerwechsel und keine Kosten.';$('#model-caption').textContent='Vorgemerkt: '+modelNames[r.value]+' · aktiv: Llama 3.1';$('#model-shortcut').textContent='KI: Llama 3.1 ⌄'});try{const savedChoice=localStorage.getItem('jarvis09_model_choice');
 if(savedChoice&&modelNames[savedChoice]){const radio=$$('input[name="model"]').find(r=>r.value===savedChoice);if(radio){radio.checked=true;$('#model-caption').textContent='Vorgemerkt: '+modelNames[savedChoice]+' · aktiv: Llama 3.1';}}}catch{}
-$('#model-shortcut').onclick=()=>{$('#model-panel').open=true;show('settings')};
+
+// JARVIS 0.9 – KI-Auswahl direkt in der Kopfzeile
+
+const modelTrigger = $("#model-shortcut");
+const modelMenu = el("div");
+
+modelMenu.id = "jarvis-model-dropdown";
+modelMenu.hidden = true;
+
+Object.assign(modelMenu.style, {
+  position: "absolute",
+  top: "calc(100% + 10px)",
+  right: "0",
+  width: "min(320px, calc(100vw - 32px))",
+  maxHeight: "70vh",
+  overflowY: "auto",
+  background: "#222326",
+  border: "1px solid #48494e",
+  borderRadius: "13px",
+  padding: "12px",
+  boxShadow: "0 18px 40px #0009",
+  zIndex: "30"
+});
+
+modelTrigger.parentElement.style.position = "relative";
+modelTrigger.parentElement.append(modelMenu);
+
+modelTrigger.setAttribute(
+  "aria-controls",
+  "jarvis-model-dropdown"
+);
+modelTrigger.setAttribute("aria-expanded", "false");
+modelTrigger.setAttribute("aria-haspopup", "true");
+
+function closeModelMenu() {
+  modelMenu.hidden = true;
+  modelTrigger.setAttribute("aria-expanded", "false");
+}
+
+function renderModelMenu() {
+  modelMenu.replaceChildren();
+
+  const heading = el("div", "eyebrow", "KI-MODELL AUSWÄHLEN");
+  heading.style.marginBottom = "10px";
+  modelMenu.append(heading);
+
+  const models = [
+    {
+      id: "llama",
+      name: "Llama 3.1",
+      info: "Aktives Cloudflare-Backend"
+    },
+    {
+      id: "auto",
+      name: "Automatisch",
+      info: "Derzeit ebenfalls Llama 3.1"
+    },
+    {
+      id: "gpt",
+      name: "OpenAI GPT",
+      info: "Noch nicht verbunden",
+      locked: true
+    },
+    {
+      id: "claude",
+      name: "Claude",
+      info: "Noch nicht verbunden",
+      locked: true
+    },
+    {
+      id: "local",
+      name: "Lokale KI",
+      info: "Später mit Mac mini",
+      locked: true
+    }
+  ];
+
+  const selected =
+    document.querySelector('input[name="model"]:checked')
+      ?.value || "llama";
+
+  models.forEach(model => {
+    const button = el("button");
+    button.type = "button";
+    button.disabled = !!model.locked;
+
+    Object.assign(button.style, {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: "10px",
+      width: "100%",
+      padding: "11px",
+      marginBottom: "5px",
+      borderRadius: "9px",
+      border: selected === model.id
+        ? "1px solid #77787d"
+        : "1px solid #414247",
+      background: selected === model.id
+        ? "#34353a"
+        : "#292a2e",
+      color: "#f1f1f2",
+      textAlign: "left"
+    });
+
+    const details = el("span");
+    details.style.flex = "1";
+
+    const name = el("strong", null, model.name);
+    name.style.display = "block";
+
+    const info = el("small", null, model.info);
+    info.style.display = "block";
+    info.style.color = "#aaaab0";
+
+    details.append(name, info);
+
+    const indicator = el(
+      "span",
+      null,
+      model.locked
+        ? "🔒"
+        : selected === model.id
+          ? "✓"
+          : ""
+    );
+
+    button.append(details, indicator);
+
+    if (!model.locked) {
+      button.onclick = () => {
+        const radio = document.querySelector(
+          'input[name="model"][value="' + model.id + '"]'
+        );
+
+        if (radio) {
+          radio.checked = true;
+          radio.dispatchEvent(
+            new Event("change", { bubbles: true })
+          );
+        }
+
+        closeModelMenu();
+      };
+    }
+
+    modelMenu.append(button);
+  });
+
+  const note = el(
+    "p",
+    "note",
+    "Aktives Backend: Llama 3.1. " +
+    "Keine kostenpflichtigen Modelle aktiviert."
+  );
+
+  note.style.margin = "10px 2px 0";
+  modelMenu.append(note);
+}
+
+modelTrigger.onclick = event => {
+  event.stopPropagation();
+
+  if (!modelMenu.hidden) {
+    closeModelMenu();
+    return;
+  }
+
+  renderModelMenu();
+  modelMenu.hidden = false;
+  modelTrigger.setAttribute("aria-expanded", "true");
+};
+
+document.addEventListener("click", event => {
+  if (
+    !modelMenu.hidden &&
+    !modelMenu.contains(event.target) &&
+    event.target !== modelTrigger
+  ) {
+    closeModelMenu();
+  }
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeModelMenu();
+  }
+});
+
 let tm;const monitor=$('#monitor'),trigger=$('#limit-button');function closeMonitor(){monitor.hidden=true;trigger.setAttribute('aria-expanded','false');clearTimeout(tm)}function scheduleClose(){clearTimeout(tm);if(!monitor.hidden)tm=setTimeout(closeMonitor,6000)}function openMonitor(){monitor.hidden=false;trigger.setAttribute('aria-expanded','true');scheduleClose()}trigger.onclick=()=>monitor.hidden?openMonitor():closeMonitor();$('#limit-close').onclick=closeMonitor;$('#limits-from-settings').onclick=openMonitor;monitor.onpointerdown=scheduleClose;monitor.onkeydown=scheduleClose;monitor.onfocusin=()=>clearTimeout(tm);monitor.onfocusout=scheduleClose;document.addEventListener('click',e=>{if(!monitor.hidden&&!e.target.closest('.top'))closeMonitor()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMonitor()});
 
 // MODULE: Datenübernahme – niemals die Daten der alten JARVIS-Version überschreiben.
