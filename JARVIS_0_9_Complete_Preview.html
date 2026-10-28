@@ -249,6 +249,54 @@ load();renderNav();paint();renderOrders();renderNotes();renderActivity();
 })();
 </script>
  
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const destinations = [
+    ["Offene Aufgaben", "tasks"],
+    ["Notizen", "brain"],
+    ["Freigaben", "approvals"],
+    ["Aufträge", "orders"]
+  ];
+
+  for (const [label, target] of destinations) {
+    const cards = [...document.querySelectorAll(
+      "main .card, main .stat, main [class*='metric']"
+    )];
+
+    const card = cards.find(el =>
+      el.textContent.trim().includes(label)
+    );
+
+    if (!card) continue;
+
+    card.style.cursor = "pointer";
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", label + " öffnen");
+
+    const open = () => {
+      const section = document.getElementById(target);
+      if (!section) return;
+
+      document.querySelectorAll("[data-page]").forEach(page => {
+        page.hidden = page !== section;
+      });
+
+      section.hidden = false;
+      section.scrollIntoView({ behavior: "smooth" });
+    };
+
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
+});
+</script>
+
 <script src="/jarvis-chat-manager.js" defer></script>
 </body>
 </html>
