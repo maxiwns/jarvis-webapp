@@ -33,10 +33,29 @@
   text-align: center;
 }
 .model-header-group {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
+}
+
+.topright {
+  align-items: center;
+}
+
+#active-model-label {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  width: 100%;
+  display: block;
+  font-size: 10px;
+  color: #a4a5ac;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#active-model-label[hidden] {
+  display: none;
 }
 </style></head><body>
 <div class="shell"><aside><div class="brand"><span aria-hidden="true" class="core"></span><div><b>JARVIS</b><div class="tiny">WORKSPACE 0.9</div></div></div><nav aria-label="Hauptnavigation" id="sidebar"></nav><div class="side-end">● Lokale Vorschau<br/>Bestehendes Backend unverändert</div></aside>
@@ -416,7 +435,34 @@ if(savedChoice&&modelNames[savedChoice]){const radio=$$('input[name="model"]').f
     : 'KI: Llama 3.1 ⌄';$('#model-caption').textContent='Vorgemerkt: '+modelNames[savedChoice]+' · aktiv: Llama 3.1';}}}catch{}
 
 // JARVIS 0.9 – KI-Auswahl direkt in der Kopfzeile
+// Aktives Modell nur im Automatikmodus anzeigen
+function updateActiveModelLabel() {
+  const selected = document.querySelector(
+    'input[name="model"]:checked'
+  )?.value;
 
+  const label = document.getElementById(
+    "active-model-label"
+  );
+
+  if (!label) return;
+
+  label.hidden = selected !== "auto";
+
+  // Aktuell ist ausschließlich Llama 3.1 angebunden.
+  label.textContent = "Aktiv: Llama 3.1";
+}
+
+document.querySelectorAll(
+  'input[name="model"]'
+).forEach(radio => {
+  radio.addEventListener(
+    "change",
+    updateActiveModelLabel
+  );
+});
+
+updateActiveModelLabel();
 const modelTrigger = $("#model-shortcut");
 const modelMenu = el("div");
 
