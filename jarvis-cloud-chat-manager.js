@@ -417,9 +417,20 @@ list.append(row);
     }
 
     setBusy(true);
-    setStatus("JARVIS denkt …");
+setStatus("JARVIS denkt …");
 
-    try {
+// Nachricht sofort anzeigen, noch bevor die KI antwortet
+const pendingMessage = node(
+  "div",
+  "jcm-message jcm-user",
+  message
+);
+
+messages.append(pendingMessage);
+messages.scrollTop = messages.scrollHeight;
+input.value = "";
+
+try {
       const data = await api("/api/conversation-turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -445,11 +456,14 @@ list.append(row);
         (data.model || "nicht angegeben")
       );
     } catch (error) {
-      setStatus(
-        "Fehler: " + error.message +
-        " – Bitte vor erneutem Senden den Chat aktualisieren."
-      );
-    } finally {
+  pendingMessage.remove();
+  input.value = message;
+
+  setStatus(
+    "Senden nicht bestätigt: " + error.message +
+    " – Bitte vor einem erneuten Versuch den Chat aktualisieren."
+  );
+} finally {
       setBusy(false);
     }
   };
