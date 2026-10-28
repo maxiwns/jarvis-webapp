@@ -142,6 +142,144 @@
   root.append(side, main);
   page.append(root);
 
+// JARVIS – Kompakte Kopfzeile und verschiebbare Chatliste
+
+const splitStyle = node("style");
+
+splitStyle.textContent = `
+  /* Großen KI-Chat-Kasten nur auf der Chatseite ausblenden */
+  #chat > .hero {
+    display: none;
+  }
+
+  /* Verschiebbare Trennleiste */
+  #jarvis-cloud-manager .jcm-divider {
+    width: 14px;
+    min-width: 14px;
+    cursor: col-resize;
+    touch-action: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+  }
+
+  #jarvis-cloud-manager .jcm-divider::after {
+    content: "";
+    display: block;
+    width: 4px;
+    height: 68px;
+    border-radius: 8px;
+    background: #777980;
+  }
+
+  #jarvis-cloud-manager .jcm-divider:hover::after {
+    background: #c6c7ce;
+  }
+
+  #jarvis-cloud-manager > .jcm-panel:first-child {
+    min-width: 0;
+  }
+
+  #jarvis-cloud-manager .jcm-main {
+    min-width: 0;
+  }
+`;
+
+document.head.append(splitStyle);
+
+// Trennleiste zwischen Chatliste und Chat setzen
+const divider = node("div", "jcm-divider");
+
+divider.setAttribute("role", "separator");
+divider.setAttribute("aria-label", "Chatliste vergrößern oder verkleinern");
+divider.setAttribute("aria-orientation", "vertical");
+
+root.insertBefore(divider, main);
+
+// Breite der Chatliste merken
+const SIDEBAR_WIDTH_KEY = "jarvis_chat_sidebar_width";
+
+let sidebarWidth = 230;
+
+try {
+  const savedWidth = Number(
+    localStorage.getItem(SIDEBAR_WIDTH_KEY)
+  );
+
+  if (Number.isFinite(savedWidth) &&
+      savedWidth >= 0 &&
+      savedWidth <= 800) {
+    sidebarWidth = savedWidth;
+  }
+} catch {}
+
+// Tatsächliche Breite anwenden
+function applySidebarWidth(width) {
+  const maxWidth = Math.max(
+    140,
+    Math.floor(root.clientWidth * 0.6)
+  );
+
+  sidebarWidth = width < 70
+    ? 0
+    : Math.max(140, Math.min(width, maxWidth));
+
+  side.hidden = sidebarWidth === 0;
+
+  root.classList.remove("jcm-collapsed");
+
+  root.style.gridTemplateColumns =
+    sidebarWidth + "px 14px minmax(0, 1fr)";
+}
+
+// Beim ersten Laden anwenden
+applySidebarWidth(sidebarWidth);
+
+let draggingDivider = false;
+
+divider.addEventListener("pointerdown", event => {
+  if (event.button !== 0 &&
+      event.pointerType === "mouse") return;
+
+  draggingDivider = true;
+
+  divider.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+
+divider.addEventListener("pointermove", event => {
+  if (!draggingDivider) return;
+
+  const bounds = root.getBoundingClientRect();
+
+  const newWidth = event.clientX - bounds.left;
+
+  applySidebarWidth(newWidth);
+});
+
+function finishDividerDrag() {
+  if (!draggingDivider) return;
+
+  draggingDivider = false;
+
+  try {
+    localStorage.setItem(
+      SIDEBAR_WIDTH_KEY,
+      String(sidebarWidth)
+    );
+  } catch {}
+}
+
+divider.addEventListener("pointerup", finishDividerDrag);
+divider.addEventListener("pointercancel", finishDividerDrag);
+divider.addEventListener("lostpointercapture", finishDividerDrag);
+
+// Breite bei Bildschirmdrehung korrigieren
+window.addEventListener("resize", () => {
+  applySidebarWidth(sidebarWidth);
+});
+
   let chats = [];
   let activeId = null;
   let busy = false;
