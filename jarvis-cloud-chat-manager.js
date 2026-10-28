@@ -194,7 +194,76 @@
         if (!busy) openChat(chat.id);
       };
 
-      list.append(button);
+      
+const row = node("div");
+row.style.display = "flex";
+row.style.gap = "6px";
+row.style.alignItems = "center";
+
+button.style.flex = "1";
+button.style.minWidth = "0";
+
+const remove = node("button", "btn quiet", "×");
+remove.type = "button";
+remove.title = "Chat löschen";
+remove.setAttribute(
+  "aria-label",
+  "Chat löschen: " + chat.title
+);
+
+remove.onclick = async () => {
+  if (busy) return;
+
+  if (!confirm(
+    'Chat "' + chat.title +
+    '" und alle Nachrichten endgültig löschen?'
+  )) return;
+
+  setBusy(true);
+  setStatus("Chat wird gelöscht …");
+
+  try {
+    const result = await api("/api/conversation-delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ chatId: chat.id })
+    });
+
+    if (result.deleted !== true) {
+      throw new Error("Löschen nicht bestätigt");
+    }
+
+    if (activeId === chat.id) {
+      ++selectionVersion;
+      activeId = null;
+      messages.replaceChildren();
+      title.textContent = "Cloud-Chat";
+    }
+
+    await loadChats();
+
+    setBusy(false);
+
+    if (!activeId && chats.length) {
+      await openChat(chats[0].id);
+    } else if (!chats.length) {
+      setStatus("Keine Cloud-Chats vorhanden.");
+    } else {
+      setStatus("Chat gelöscht.");
+    }
+
+  } catch (error) {
+    setStatus("Löschen fehlgeschlagen: " + error.message);
+  } finally {
+    setBusy(false);
+  }
+};
+
+row.append(button, remove);
+list.append(row);
+
     }
   }
 
