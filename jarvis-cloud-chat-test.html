@@ -1,0 +1,191 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JARVIS 0.9 – Cloud Chat</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111214;color:#f0f0f0;
+font-family:system-ui,sans-serif;padding:20px}
+main{max-width:800px;margin:auto}
+h1{font-size:22px}
+.panel{background:#1e1f22;border:1px solid #393a3d;
+border-radius:14px;padding:15px;margin:12px 0}
+button,textarea{font:inherit;border-radius:9px;padding:11px}
+button{background:#e6e6e6;color:#151515;border:0;cursor:pointer}
+button:disabled{opacity:.5}
+#chats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#chats button{background:#333438;color:#eee;
+border:1px solid #555}
+#chats button.active{border-color:white}
+#messages{min-height:170px;max-height:450px;
+overflow:auto;display:flex;flex-direction:column;gap:10px}
+.message{padding:12px;border-radius:10px;
+white-space:pre-wrap;overflow-wrap:anywhere}
+.user{background:#393a3e;margin-left:10%}
+.assistant{background:#292a2e;margin-right:10%}
+textarea{width:100%;min-height:90px;background:#292a2e;
+color:white;border:1px solid #555}
+#status{font-size:13px;color:#aaa;margin:12px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>JARVIS · Cloud Chat</h1>
+<p>Testversion · Chats aus Cloudflare D1</p>
+
+<section class="panel">
+<button id="newChat">+ Neuer Cloud-Chat</button>
+<div id="chats"></div>
+</section>
+
+<section class="panel">
+<h2 id="title">Chat auswählen</h2>
+<div id="messages"></div>
+</section>
+
+<section class="panel">
+<textarea id="input"
+placeholder="Nachricht an JARVIS ..."></textarea>
+<button id="send">Senden</button>
+<div id="status" role="status"></div>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let activeId = null;
+let busy = false;
+
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "HTTP " + response.status);
+  }
+
+  return data;
+}
+
+function status(text) {
+  $("status").textContent = text;
+}
+
+async function loadChats() {
+  const data = await api("/api/conversations");
+  $("chats").replaceChildren();
+
+  for (const chat of data.chats) {
+    const button = document.createElement("button");
+    button.textContent = chat.title;
+    button.className =
+      chat.id === activeId ? "active" : "";
+
+    button.onclick = () => openChat(chat.id, chat.title);
+    $("chats").append(button);
+  }
+}
+
+async function openChat(id, title) {
+  if (busy) return;
+  activeId = id;
+  $("title").textContent = title;
+  $("messages").replaceChildren();
+
+  const data = await api(
+    "/api/messages?chatId=" + encodeURIComponent(id)
+  );
+
+  for (const msg of data.messages) {
+    const element = document.createElement("div");
+    element.className = "message " + msg.role;
+    element.textContent =
+      (msg.role === "user" ? "Du:\n" : "JARVIS:\n") +
+      msg.content;
+    $("messages").append(element);
+  }
+
+  $("messages").scrollTop = $("messages").scrollHeight;
+  await loadChats();
+}
+
+$("newChat").onclick = async () => {
+  if (busy) return;
+  try {
+    const data = await api("/api/conversations", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        title: "Cloud-Chat " + new Date().toLocaleString("de-DE")
+      })
+    });
+
+    await openChat(data.chat.id, data.chat.title);
+    status("Neuer Chat in D1 erstellt.");
+  } catch (error) {
+    status("Fehler: " + error.message);
+  }
+};
+
+$("send").onclick = async () => {
+  if (!activeId || busy) {
+    status("Bitte zuerst einen Chat auswählen.");
+    return;
+  }
+
+  const message = $("input").value.trim();
+
+  if (message.length < 5 || message.length > 2000) {
+    status("Bitte 5 bis 2000 Zeichen eingeben.");
+    return;
+  }
+
+  busy = true;
+  $("send").disabled = true;
+  $("newChat").disabled = true;
+  status("JARVIS denkt ...");
+
+  try {
+    const data = await api("/api/conversation-turn", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        chatId: activeId,
+        message,
+        model: "auto"
+      })
+    });
+
+    if (!data.saved) {
+      throw new Error("Speicherung nicht bestätigt");
+    }
+
+    $("input").value = "";
+    status("Nachricht und KI-Antwort gespeichert.");
+  } catch (error) {
+    status("Fehler: " + error.message);
+  } finally {
+    busy = false;
+    $("send").disabled = false;
+    $("newChat").disabled = false;
+    try {
+      await openChat(activeId, $("title").textContent);
+    } catch (error) {
+      status("Laden fehlgeschlagen: " + error.message);
+    }
+  }
+};
+
+loadChats().catch(error => {
+  status("Verbindung fehlgeschlagen: " + error.message);
+});
+</script>
+</body>
+</html>
