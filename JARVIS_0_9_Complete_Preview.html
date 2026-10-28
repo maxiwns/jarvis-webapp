@@ -54,6 +54,272 @@ function show(id){if(!SECTIONS.some(s=>s[0]===id))return;current=id;$$('.page').
 function renderNav(){const build=(target,entries)=>{target.replaceChildren();entries.forEach(([id,icon,name])=>{const btn=el('button',id===current?'active':'',icon+' '+(target.id==='bottomnav'?({dashboard:'Start',chat:'Chat',orders:'Aufträge',brain:'Wissen',settings:'Mehr'}[id]||name):name));btn.onclick=()=>show(id);target.append(btn)})};build($('#sidebar'),SECTIONS);build($('#bottomnav'),[SECTIONS[0],SECTIONS[1],SECTIONS[2],SECTIONS[4],SECTIONS[7]])}
 $$('[data-page]').forEach(b=>b.onclick=()=>show(b.dataset.page));
       
+// JARVIS 0.9 – Dashboard Schnellübersicht
+// Nutzt die bestehenden lokalen Daten und Funktionen.
+
+const quickCards = [...document.querySelectorAll(
+  "#dashboard > .grid > .stat"
+)];
+
+const quickPages = [
+  "tasks", "brain", "approvals", "orders"
+];
+
+const quickPanel = el("div", "panel");
+quickPanel.id = "dashboard-quick-panel";
+quickPanel.hidden = true;
+quickPanel.style.marginBottom = "12px";
+
+const quickContent = el("div", "inner");
+quickPanel.append(quickContent);
+
+const statsGrid = $("#dashboard > .grid");
+statsGrid.after(quickPanel);
+
+let activeQuick = null;
+
+function quickButton(label, action) {
+  const button = el("button", "btn quiet", label);
+  button.type = "button";
+  button.onclick = action;
+  return button;
+}
+
+function quickOpen(page, index = -1) {
+  if (page === "tasks") {
+    filter = "all";
+    paint();
+  }
+
+  if (page === "brain") {
+    $("#note-search").value = "";
+    renderNotes();
+  }
+
+  show(page);
+
+  if (index >= 0) {
+    const selector = {
+      tasks: "#task-list .item",
+      brain: "#note-list .item",
+      approvals: "#approval-list .item",
+      orders: "#order-list .order-box"
+    }[page];
+
+    const rows = document.querySelectorAll(selector);
+    const row = rows[index];
+
+    if (row) {
+      if (page === "brain") {
+        row.querySelector("button")?.click();
+      }
+      row.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+  }
+}
+
+function renderQuick() {
+  if (!activeQuick) return;
+
+  quickContent.replaceChildren();
+
+  const page = activeQuick;
+  const names = {
+    tasks: "Offene Aufgaben",
+    brain: "Notizen",
+    approvals: "Freigaben",
+    orders: "Aufträge"
+  };
+
+  const heading = el("div", "headline spaced");
+  heading.append(el("strong", null, names[page]));
+
+  heading.append(quickButton("×", () => {
+    activeQuick = null;
+    quickPanel.hidden = true;
+    quickCards.forEach(card =>
+      card.setAttribute("aria-expanded", "false")
+    );
+  }));
+
+  quickContent.append(heading);
+
+  let entries = [];
+
+  if (page === "tasks") {
+    entries = db.tasks.filter(t => !t.done).slice(0, 8);
+  } else if (page === "brain") {
+    entries = db.notes.slice(0, 8);
+  } else if (page === "approvals") {
+    entries = db.approvals.filter(
+      a => a.status === "open"
+    ).slice(0, 8);
+  } else {
+    entries = db.orders.slice(0, 8);
+  }
+
+  if (!entries.length) {
+    quickContent.append(
+      el("p", "muted", "Noch keine Einträge vorhanden.")
+    );
+  }
+
+  entries.forEach(entry => {
+    const row = el("div", "item");
+    const content = el("div", "grow");
+
+    let title = entry.title || entry.goal || "Ohne Titel";
+
+    const openEntry = () => {
+      let index = -1;
+
+      if (page === "tasks") {
+        index = db.tasks.findIndex(t => t.id === entry.id);
+      } else if (page === "brain") {
+        index = db.notes.findIndex(n => n.id === entry.id);
+      } else if (page === "approvals") {
+        index = db.approvals
+          .filter(a => a.status === "open")
+          .findIndex(a => a.id === entry.id);
+      } else {
+        index = db.orders.findIndex(o => o.id === entry.id);
+      }
+
+      quickOpen(page, index);
+    };
+
+    if (page === "tasks") {
+      const check = el("input");
+      check.type = "checkbox";
+      check.checked = !!entry.done;
+      check.setAttribute("aria-label", title + " erledigen");
+
+      check.onchange = () => {
+        entry.done = check.checked;
+        persist();
+        log("Aufgabe über Dashboard aktualisiert");
+        paint();
+      };
+
+      row.append(check);
+    }
+
+    const link = el("button", null, title);
+    link.type = "button";
+    link.style.background = "transparent";
+    link.style.border = "0";
+    link.style.color = "#f1f1f2";
+    link.style.textAlign = "left";
+    link.style.padding = "4px 0";
+    link.style.width = "100%";
+    link.style.cursor = "pointer";
+    link.style.overflowWrap = "anywhere";
+    link.onclick = openEntry;
+
+    content.append(link);
+
+    if (page === "orders") {
+      content.append(el(
+        "small",
+        null,
+        (entry.steps || []).filter(s => s.done).length +
+        " / " + (entry.steps || []).length +
+        " Schritte erledigt"
+      ));
+    }
+
+    row.append(content);
+
+    if (page === "approvals") {
+      const decide = (status) => {
+        entry.status = status;
+        persist();
+        log(status === "approved"
+          ? "Testfreigabe bestätigt"
+          : "Testfreigabe abgelehnt");
+        paint();
+      };
+
+      row.append(
+        quickButton("✓", () => decide("approved")),
+        quickButton("×", () => decide("rejected"))
+      );
+    } else {
+      row.append(quickButton("↗", openEntry));
+    }
+
+    quickContent.append(row);
+  });
+
+  const footer = el("div", "section");
+
+  const all = el(
+    "button",
+    "btn",
+    "Alle anzeigen →"
+  );
+
+  all.type = "button";
+  all.onclick = () => quickOpen(page);
+  footer.append(all);
+  quickContent.append(footer);
+}
+
+quickCards.forEach((card, index) => {
+  const page = quickPages[index];
+
+  card.style.cursor = "pointer";
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-expanded", "false");
+  card.setAttribute(
+    "aria-controls",
+    "dashboard-quick-panel"
+  );
+
+  const toggle = () => {
+    activeQuick = activeQuick === page ? null : page;
+    quickPanel.hidden = !activeQuick;
+
+    quickCards.forEach((item, i) => {
+      item.setAttribute(
+        "aria-expanded",
+        String(quickPages[i] === activeQuick)
+      );
+    });
+
+    renderQuick();
+
+    if (activeQuick) {
+      quickPanel.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest"
+      });
+    }
+  };
+
+  card.addEventListener("click", toggle);
+
+  card.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggle();
+    }
+  });
+});
+
+// Nach Änderungen dieselbe Übersicht aktualisieren.
+const originalPaint = paint;
+
+paint = function() {
+  originalPaint();
+  renderQuick();
+};
+
+      
 // Dashboard-Karten als Schnellnavigation
 const dashboardTargets = [
   "tasks",
