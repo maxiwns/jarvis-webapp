@@ -319,39 +319,6 @@ paint = function() {
   renderQuick();
 };
 
-      
-// Dashboard-Karten als Schnellnavigation
-const dashboardTargets = [
-  "tasks",
-  "brain",
-  "approvals",
-  "orders"
-];
-
-const dashboardCards = document.querySelectorAll(
-  "#dashboard > .grid > .stat"
-);
-
-dashboardCards.forEach((card, index) => {
-  const target = dashboardTargets[index];
-  if (!target) return;
-
-  card.style.cursor = "pointer";
-  card.setAttribute("role", "button");
-  card.setAttribute("tabindex", "0");
-
-  card.addEventListener("click", () => {
-    show(target);
-  });
-
-  card.addEventListener("keydown", event => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      show(target);
-    }
-  });
-});
-
 function dateDE(date){if(!date)return'';let d=new Date(date+'T12:00:00');return Number.isNaN(d.valueOf())?'':d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}
 function formatEvent(t){try{return new Date(t).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}catch{return''}}
 function renderTaskList(target,items){target.replaceChildren();if(!items.length){target.append(el('p','muted','Keine Aufgaben vorhanden.'));return}items.forEach(t=>{let row=el('div','item');let box=el('input');box.type='checkbox';box.checked=!!t.done;box.setAttribute('aria-label','Aufgabe abschließen');box.onchange=()=>{t.done=box.checked;persist();log(t.done?'Aufgabe abgeschlossen':'Aufgabe wieder geöffnet');paint()};let grow=el('div','grow');let title=el('div',t.done?'done':'',t.title);grow.append(title);let meta=el('small',null,(t.area||'Allgemein')+' · '+(t.priority==='high'?'Wichtig':t.priority==='low'?'Später':'Normal')+(t.due?' · Fällig '+dateDE(t.due):''));grow.append(meta);let del=el('button','trash','×');del.title='Aufgabe löschen';del.onclick=()=>{db.tasks=db.tasks.filter(x=>x.id!==t.id);persist();log('Aufgabe gelöscht');paint()};row.append(box,grow,del);target.append(row)})}
