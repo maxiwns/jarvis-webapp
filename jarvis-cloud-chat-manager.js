@@ -418,10 +418,56 @@ list.append(row);
 const shouldAutoRename =
   chats.find(chat => chat.id === activeId)?.title === "Neuer Chat";
 
-const generatedTitle = message
-  .replace(/\s+/g, " ")
-  .trim()
-  .slice(0, 60);
+
+// Kurzen Chatnamen aus dem Thema ableiten
+const cleanMessage = message.replace(/\s+/g, " ").trim();
+
+let generatedTitle = "Neues Thema";
+
+const projectMatch = cleanMessage.match(
+  /\bProjekt\s+([\p{L}\p{N}-]+)/iu
+);
+
+if (projectMatch) {
+  generatedTitle = /\bApp\b/i.test(cleanMessage)
+    ? projectMatch[1] + " App"
+    : "Projekt " + projectMatch[1];
+
+} else if (/Second Brain/i.test(cleanMessage)) {
+  generatedTitle = "Second Brain";
+
+} else if (/Automatisierung/i.test(cleanMessage)) {
+  generatedTitle = "Automatisierung";
+
+} else if (/E-Mail|Mail/i.test(cleanMessage)) {
+  generatedTitle = "E-Mails";
+
+} else if (/\bApp\b/i.test(cleanMessage)) {
+  generatedTitle = "App Entwicklung";
+
+} else {
+  const stopWords = new Set([
+    "ich", "möchte", "will", "bitte", "kannst",
+    "du", "mir", "eine", "einen", "ein", "der",
+    "die", "das", "und", "für", "mein",
+    "meine", "mit", "über", "was", "wie",
+    "ist", "soll", "sollst", "helfen"
+  ]);
+
+  const words = cleanMessage
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .split(/\s+/)
+    .filter(word =>
+      word.length > 2 &&
+      !stopWords.has(word.toLowerCase())
+    );
+
+  generatedTitle =
+    words.slice(0, 2).join(" ") || "Neues Thema";
+}
+
+generatedTitle = generatedTitle.slice(0, 40);
+
     setBusy(true);
 setStatus("JARVIS denkt …");
 
