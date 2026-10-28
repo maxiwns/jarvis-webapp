@@ -703,42 +703,6 @@ load();renderNav();paint();renderOrders();renderNotes();renderActivity();
 })();
 </script>
  
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const targets = [
-    "tasks",
-    "brain",
-    "approvals",
-    "orders"
-  ];
-
-  const cards = document.querySelectorAll(
-    "#dashboard .grid .stat"
-  );
-
-  cards.forEach((card, index) => {
-    const target = targets[index];
-    if (!target) return;
-
-    card.style.cursor = "pointer";
-    card.setAttribute("role", "button");
-    card.setAttribute("tabindex", "0");
-
-    const open = () => show(target);
-
-    card.addEventListener("click", open);
-
-    card.addEventListener("keydown", event => {
-      if (event.key === "Enter" ||
-          event.key === " ") {
-        event.preventDefault();
-        open();
-      }
-    });
-  });
-});
-</script>
-
 <script src="/jarvis-chat-manager.js" defer></script>
 </body>
 </html>
