@@ -415,7 +415,13 @@ list.append(row);
       setStatus("Dieses KI-Modell ist noch nicht verbunden.");
       return;
     }
+const shouldAutoRename =
+  chats.find(chat => chat.id === activeId)?.title === "Neuer Chat";
 
+const generatedTitle = message
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, 60);
     setBusy(true);
 setStatus("JARVIS denkt …");
 
@@ -444,7 +450,22 @@ try {
       if (data.saved !== true) {
         throw new Error("Speicherung nicht bestätigt");
       }
-
+      if (shouldAutoRename) {
+  try {
+    await api("/api/conversation-rename", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        chatId: activeId,
+        title: generatedTitle
+      })
+    });
+  } catch (renameError) {
+    console.warn("Automatische Benennung fehlgeschlagen");
+  }
+}
       input.value = "";
       await loadChats();
 
