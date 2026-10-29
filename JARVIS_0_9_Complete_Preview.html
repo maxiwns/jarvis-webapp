@@ -359,6 +359,12 @@ async function refreshCloudTasks(){
     console.warn('JARVIS Cloud-Aufgaben:',error);
   }finally{cloudTasksLoading=false;}
 }
+      
+/* Aufgaben direkt nach einer Chat-Aktion aktualisieren */
+window.addEventListener("jarvis:tasks-updated", () => {
+  refreshCloudTasks();
+});
+
 async function updateTaskDone(task,done){
   if(task.cloud){
     try{
