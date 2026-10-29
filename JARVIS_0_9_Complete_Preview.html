@@ -1,3 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="de"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/><meta content="#0c0d0f" name="theme-color"/><title>JARVIS 0.9 · Minimal Modular · Vollständiger Workspace</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0d0f;--side:#111214;--panel:#191a1d;--panel2:#232427;--stroke:#37383b;--text:#f1f1f2;--muted:#a4a5ac;--green:#65d5a5;--orange:#eebc73;--red:#ff8787}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,-apple-system,sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid #fff;outline-offset:2px}button:disabled{opacity:.5;cursor:not-allowed}.shell{min-height:100vh;display:grid;grid-template-columns:215px minmax(0,1fr)}aside{background:var(--side);border-right:1px solid var(--stroke);padding:25px 12px;display:flex;flex-direction:column;gap:30px}.brand{display:flex;align-items:center;gap:13px;padding:0 12px}.brand b{letter-spacing:.2em;font-size:17px}.core{width:25px;height:25px;border:1px solid #adb0b7;border-radius:50%;background:radial-gradient(circle,#fff 0 9%,#9da4ad 12% 23%,#30333a 29% 43%,#101113 65%);box-shadow:0 0 13px #ffffff32;position:relative;flex-shrink:0}.core:after{content:"";position:absolute;inset:-5px;border:1px solid #cdd2de55;border-radius:50%;animation:pulse 4s infinite}@keyframes pulse{50%{opacity:.12;transform:scale(1.14)}}@media(prefers-reduced-motion:reduce){.core:after{animation:none}}.tiny{font-size:10px;letter-spacing:.1em;color:var(--muted)}nav{display:grid;gap:4px}nav button{border:1px solid transparent;border-radius:10px;text-align:left;padding:10px 12px;color:#b8b8be;background:transparent}nav button.active,nav button:hover{background:#292a2d;border-color:#424348;color:#fff}.side-end{margin-top:auto;color:var(--muted);font-size:11px;padding:12px;border-top:1px solid var(--stroke)}main{min-width:0;max-width:1300px;width:100%;padding:25px clamp(16px,4vw,50px) 90px;margin:0 auto}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:23px;position:relative}.top small{color:var(--muted)}.topright{display:flex;align-items:center;gap:8px}.btn{border:1px solid #55565c;border-radius:10px;padding:9px 13px;color:#fff;background:#323339}.btn:hover{background:#424348}.btn.primary{background:#e9e9ea;color:#161719;border-color:#e9e9ea;font-weight:650}.btn.primary:hover{background:#c9c9ce}.btn.quiet{background:transparent}.dot{display:inline-block;width:8px;height:8px;background:var(--orange);border-radius:50%;margin-right:6px}.hero{padding:24px 26px;background:linear-gradient(135deg,#222326,#151619);border:1px solid var(--stroke);border-radius:17px;margin-bottom:14px}.hero h1{font-size:clamp(23px,3vw,36px);letter-spacing:-.03em;margin:5px 0}.hero p,.muted{color:var(--muted)}.hero p{margin:4px 0}.eyebrow{font-size:11px;letter-spacing:.15em;color:#b9bac1;font-weight:600}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}.stat{border:1px solid var(--stroke);background:var(--panel);border-radius:13px;padding:15px}.stat b{display:block;font-size:24px;margin:5px 0}.stat small{color:var(--muted)}.stack{display:grid;gap:12px}.two{display:grid;grid-template-columns:1.2fr 1fr;gap:12px}.panel{border:1px solid var(--stroke);background:var(--panel);border-radius:14px;overflow:hidden;min-width:0}.panel summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;padding:15px 18px;gap:12px}.panel summary::-webkit-details-marker{display:none}.panel summary strong{display:block}.panel summary small{display:block;color:var(--muted);margin-top:2px}.panel summary:after{content:'⌄';color:#c4c5c9;transition:transform .15s}.panel[open] summary:after{transform:rotate(180deg)}.inner{border-top:1px solid var(--stroke);padding:16px 18px}.field{background:#101113;color:#fff;border:1px solid #44454a;border-radius:9px;width:100%;padding:11px 12px;min-width:0}.field::placeholder{color:#8c8d94}textarea.field{resize:vertical}.line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.line>.field{flex:1}.pill{display:inline-block;border:1px solid #595a60;background:#292a2e;border-radius:999px;padding:3px 9px;color:#cacbd1;font-size:11px}.ok{color:var(--green)}.warn{color:var(--orange)}.bad{color:var(--red)}.note{font-size:12px;color:var(--muted)}.item{display:flex;align-items:center;gap:10px;border-bottom:1px solid #343539;padding:12px 0}.item:last-child{border-bottom:0}.item .grow{flex:1;min-width:0;overflow-wrap:anywhere}.item .done{text-decoration:line-through;color:var(--muted)}.item small{color:var(--muted);display:block}.item .trash{border:1px solid #414246;color:#d5d5d6;background:transparent;border-radius:8px;padding:6px 9px}.item .trash:hover{color:var(--red)}.subnav{margin:0 0 12px;color:var(--muted)}.hidden,[hidden]{display:none!important}.preview-banner{color:#dfcda7;background:#2d281e;border:1px solid #5a4a2e;border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:12px}.chip{background:#28292d;color:#e2e2e5;border:1px solid #424348;padding:8px 12px;border-radius:9px}.monitor{position:absolute;right:0;top:48px;z-index:10;width:min(340px,calc(100vw - 32px));padding:16px;background:#222326;border:1px solid #535459;border-radius:14px;box-shadow:0 20px 40px #0009}.monitor p{font-size:12px;color:var(--muted);margin:9px 0}.monitor .head{display:flex;justify-content:space-between;align-items:center}.bar{background:#38393d;height:5px;border-radius:5px;margin:7px 0}.options{display:grid;gap:8px}.option{display:flex;gap:10px;align-items:flex-start;border:1px solid #45464b;background:#242529;padding:12px;border-radius:10px}.option b{display:block}.option small{display:block;color:var(--muted)}.section{margin-top:12px}.footer{color:#777980;font-size:11px;padding:25px 4px}#bottomnav{display:none}.tally{background:#303137;padding:2px 8px;border-radius:12px;font-size:11px;color:#c6c7ce}.headline{display:flex;align-items:center;justify-content:space-between;gap:8px}.spaced{margin:0 0 12px}.nowrap{white-space:nowrap}@media(max-width:880px){.shell{grid-template-columns:1fr}aside{display:none}.two{grid-template-columns:1fr}main{padding:20px 16px 95px}#bottomnav{position:fixed;display:flex;justify-content:space-around;bottom:0;left:0;right:0;z-index:15;background:#161719ee;border-top:1px solid #414247;padding:10px 4px max(10px,env(safe-area-inset-bottom));backdrop-filter:blur(12px)}#bottomnav button{font-size:11px;text-align:center;padding:7px 9px}.grid{gap:8px}}@media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr)}.hero{padding:20px}.top{gap:5px}.topright{gap:6px}.topright .chip{font-size:11px;padding:7px 8px}.item{flex-wrap:wrap}}
+
+/* Erweiterbare Module – Architektur v0.9 */
+.mobile-core{display:none} .grid{grid-template-columns:repeat(4,minmax(0,1fr))} @media(max-width:880px){.mobile-core{display:inline-block;width:18px;height:18px;vertical-align:middle;margin-right:9px}} @media(max-width:480px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#orders .item{align-items:flex-start} #orders .item label{cursor:pointer}
+.order-box{border:1px solid #414246;border-radius:12px;padding:13px;margin:10px 0;background:#202125}
+.order-box h3{font-size:15px;margin:5px 0 7px;line-height:1.4;font-weight:650}
+.order-box .meta{font-size:11px;color:#adaeb6}
+.order-steps{margin-top:11px;border-top:1px solid #393a3e}
+.order-step{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #36373b}
+.order-step input{margin-top:4px;accent-color:#eeeeef}
+.order-step span{flex:1;overflow-wrap:anywhere}
+.order-step.isdone span{text-decoration:line-through;color:#93949a}
+.order-box .field{margin-top:8px}
+.order-box .actions{display:flex;align-items:center;gap:7px;margin-top:11px;flex-wrap:wrap}
+.order-box .actions .btn{font-size:12px}
+#bottomnav button{white-space:nowrap}
+@media(max-width:480px){.order-box{padding:10px}.line>.field{flex-basis:140px}}
+#model-shortcut {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+#active-model-label {
+  display: block;
+  font-size: 10px;
+  color: #a4a5ac;
+  text-align: center;
+}
+.model-header-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.topright {
+  align-items: center;
+}
+
+#active-model-label {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  width: 100%;
+  display: block;
+  font-size: 10px;
+  color: #a4a5ac;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#active-model-label[hidden] {
+  display: none;
+}
+</style></head><body>
+<div class="shell"><aside><div class="brand"><span aria-hidden="true" class="core"></span><div><b>JARVIS</b><div class="tiny">WORKSPACE 0.9</div></div></div><nav aria-label="Hauptnavigation" id="sidebar"></nav><div class="side-end">● Lokale Vorschau<br/>Bestehendes Backend unverändert</div></aside>
+<main><div class="top"><div><span aria-hidden="true" class="core mobile-core"></span><b class="eyebrow" id="page-label">ÜBERSICHT</b><div><small>JARVIS / Minimal Modular</small></div></div><div class="topright"><div class="model-header-group"><button class="chip" id="model-shortcut" title="KI-Modell verwalten">KI: Llama 3.1 ⌄</button><span id="active-model-label">Aktiv: Llama 3.1</span></div><button aria-controls="monitor" aria-expanded="false" class="chip" id="limit-button">◫ Limits</button></div><div class="monitor" hidden="" id="monitor"><div class="head"><strong>Ressourcenmonitor</strong><button aria-label="Schließen" class="btn quiet" id="limit-close">×</button></div><p>Workers AI · Neurons <b style="float:right">Nicht verbunden</b></p><div class="bar"></div><p>Workers-Anfragen <b style="float:right">Nicht verbunden</b></p><div class="bar"></div><p>Pages Builds <b style="float:right">Nicht verbunden</b></p><div class="bar"></div><p>API-Kosten <b style="float:right">Keine API aktiviert</b></p><div class="bar"></div><div class="note">Keine Live-Werte; automatische Schließung nach sechs Sekunden.</div></div></div>
+<section class="page" id="dashboard"><div class="hero"><div class="eyebrow">PERSONAL AI CONTROL CENTER</div><h1 id="greeting">Guten Tag.</h1><p>Deine wichtigsten Aufgaben auf einen Blick. Alles Weitere ist einklappbar.</p></div><div class="grid"><div class="stat"><small>Offene Aufgaben</small><b id="count-tasks">0</b><small>Lokale Vorschau</small></div><div class="stat"><small>Notizen</small><b id="count-notes">0</b><small>Second Brain</small></div><div class="stat"><small>Freigaben</small><b id="count-approvals">0</b><small>Nur Demo-Freigaben</small></div><div class="stat"><small>Aufträge</small><b id="count-orders">0</b><small>Lokale Arbeitspläne</small></div></div><div class="stack"><div class="line"><button class="btn quiet" data-page="orders">Auftragszentrale öffnen</button><button class="btn quiet" data-page="brain">Second Brain öffnen</button><button class="btn quiet" data-page="approvals">Freigaben ansehen</button></div><details class="panel" id="brief-panel"><summary><span><strong>☼ Morning Briefing</strong><small>Erstes Öffnen am Morgen · jederzeit aufklappbar</small></span></summary><div class="inner"><b id="brief-date"></b><p class="muted">Dein Überblick aus den lokal angelegten Aufgaben:</p><div id="brief-content"></div><p class="note">Keine Verbindung zu Kalender, Nachrichten oder externen Quellen.</p><button class="btn" id="brief-dismiss">Für heute schließen</button></div></details><div class="two"><details class="panel" open=""><summary><span><strong>✦ Schnellauftrag</strong><small>Direkt als Aufgabe vormerken</small></span></summary><div class="inner"><textarea class="field" id="quick-input" maxlength="500" placeholder="Was soll JARVIS erledigen?" rows="3"></textarea><div class="line section"><button class="btn primary" id="quick-add">Als Aufgabe speichern</button><span class="note" id="quick-hint">Als Einzelaufgabe speichern · für Arbeitspläne die Auftragszentrale öffnen.</span></div></div></details><details class="panel"><summary><span><strong>☷ Offene Aufgaben</strong><small>Zusammengeklappt, bis du sie brauchst</small></span></summary><div class="inner"><div id="dash-task-list"></div><button class="btn" data-page="tasks">Alle Aufgaben</button></div></details></div><details class="panel"><summary><span><strong>◎ Aktivitäten</strong><small>Änderungen in dieser lokalen Vorschau</small></span></summary><div class="inner" id="dash-activity"></div></details></div></section>
+<section class="page" hidden="" id="chat"><div class="hero"><div class="eyebrow">KOMMANDOZENTRALE</div><h1>KI-Chat</h1><p>Vorbereiteter Chatbereich für das vorhandene Cloudflare-Backend und spätere Modelle.</p></div><details class="panel" open=""><summary><span><strong>Chat &amp; Aufträge</strong><small>Aktuell lokale Planung · keine KI-Verbindung</small></span></summary><div class="inner"><textarea class="field" id="chat-input" placeholder="JARVIS, plane bitte ..." rows="5"></textarea><div class="line section"><button class="btn primary" id="chat-to-task">Als Aufgabe speichern</button><span class="note" id="chat-hint">Es wird nichts an eine KI gesendet.</span></div><p class="note">Wir verbinden den Chat erst nach serverseitiger Sitzungsprüfung. Deine API-Schlüssel gehören niemals ins Frontend.</p></div></details></section>
+<section class="page" hidden="" id="orders">
+<div class="hero"><div class="eyebrow">AUFTRAGSZENTRALE</div><h1>Aufträge &amp; Arbeitspläne</h1><p>Große Ziele in nachvollziehbare Schritte aufteilen. Die Planung ist derzeit regelbasiert und lokal – noch keine autonome Ausführung.</p></div>
+<div class="stack">
+<details class="panel" open=""><summary><span><strong>＋ Neuen Auftrag planen</strong><small>Ziel · Bereich · Priorität</small></span></summary>
+<div class="inner"><form class="stack" id="order-form"><label for="order-goal">Was soll JARVIS erledigen?</label><textarea class="field" id="order-goal" maxlength="1200" placeholder="Recherchiere passende Automatisierungssoftware und vergleiche Funktionen und Preise." required="" rows="4"></textarea><div class="line"><select aria-label="Auftragsbereich" class="field" id="order-area"><option>Business</option><option>Projekte</option><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Allgemein</option></select><select aria-label="Priorität" class="field" id="order-priority"><option value="normal">Normal</option><option value="high">Wichtig</option><option value="low">Später</option></select><button class="btn primary" type="submit">Arbeitsplan erstellen</button></div></form><p class="note">Keine Webseitenrecherche, E-Mail und keine kostenpflichtige KI-Anfrage. Schritte sind Vorschläge und können manuell abgehakt werden.</p></div></details>
+<details class="panel" open=""><summary><span><strong>☷ Meine Arbeitspläne</strong><small>Fortschritt dokumentieren · Ergebnisse sichern</small></span></summary><div class="inner"><div id="order-list"></div></div></details>
+<details class="panel"><summary><span><strong>▤ Einzelaufgaben</strong><small>Direkt zur Aufgabenverwaltung</small></span></summary><div class="inner"><p class="muted">Unabhängige Aufgaben bleiben in einem eigenen Modul und gehen bei späteren Erweiterungen nicht verloren.</p><button class="btn" data-page="tasks">Aufgaben öffnen</button></div></details>
+</div></section><section class="page" hidden="" id="tasks"><div class="hero"><div class="eyebrow">WORKSPACE</div><h1>Aufträge &amp; Aufgaben</h1><p>Aufgaben erfassen, priorisieren, abschließen und filtern.</p></div><div class="stack"><details class="panel" open=""><summary><span><strong>☷ Aufgabenliste</strong><small>Lokale Vorschau mit Priorität und Fälligkeitsdatum</small></span></summary><div class="inner"><form class="stack" id="task-form"><input class="field" id="task-title" maxlength="160" placeholder="Neue Aufgabe" required=""/><div class="line"><select aria-label="Aufgabenbereich" class="field" id="task-area" style="max-width:180px"><option>Business</option><option>Projekte</option><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Allgemein</option></select><select class="field" id="task-priority" style="max-width:175px"><option value="normal">Normal</option><option value="high">Wichtig</option><option value="low">Später</option></select><input class="field" id="task-due" style="max-width:180px" type="date"/><button class="btn primary" type="submit">Hinzufügen</button></div></form><div class="line section"><button class="chip" data-filter="all">Alle</button><button class="chip" data-filter="open">Offen</button><button class="chip" data-filter="done">Erledigt</button></div><div id="task-list"></div></div></details><details class="panel"><summary><span><strong>☾ Agenten &amp; Nachtaufträge</strong><small>Fortschritt · Wiederaufnahme · Kostenbudget</small></span></summary><div class="inner muted">Geplant: Aufträge in Teilaufgaben zerlegen, Zwischenergebnisse speichern, nach Unterbrechung fortsetzen und vor externen Aktionen Freigaben einholen.</div></details><details class="panel"><summary><span><strong>Freigaben</strong><small>Vor echten Aktionen ist deine Zustimmung nötig</small></span></summary><div class="inner"><button class="btn" id="approval-demo">Demo-Freigabe erzeugen</button><div class="note">Keine Aktion wird wirklich ausgeführt.</div><div id="tasks-approvals"></div></div></details></div></section>
+<section class="page" hidden="" id="brain"><div class="hero"><div class="eyebrow">WISSEN</div><h1>Second Brain</h1><p>Notizen, Projektideen und Ergebnisse strukturiert ablegen.</p></div><div class="stack"><details class="panel" open=""><summary><span><strong>◇ Notizen</strong><small>Schreiben · suchen · bearbeiten · löschen</small></span></summary><div class="inner"><form class="stack" id="note-form"><input class="field" id="note-title" maxlength="120" placeholder="Titel der Notiz" required=""/><select aria-label="Wissensbereich" class="field" id="note-area"><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Business</option><option>Finanzen</option><option>Projekte</option><option>Allgemein</option></select><textarea class="field" id="note-text" maxlength="10000" placeholder="Inhalt ..." required="" rows="5"></textarea><div class="line"><button class="btn primary" id="note-save" type="submit">Notiz speichern</button><button class="btn" hidden="" id="note-cancel" type="button">Bearbeiten abbrechen</button></div></form><div class="section"><input aria-label="Notizen durchsuchen" class="field" id="note-search" placeholder="Notizen durchsuchen ..."/></div><div id="note-list"></div><div class="note">Nur auf diesem Gerät im Browser gespeichert. Für private Informationen später sichere Datenbank und Zugriffsschutz anschließen.</div></div></details><details class="panel"><summary><span><strong>▦ Projekte &amp; Dokumente</strong><small>Ausbaufähiges Wissensmodul</small></span></summary><div class="inner muted">Geplant: Projekte, Dokumentenablage, Dateisuche und Verknüpfung mit KI-Ergebnissen. Das alte Second Brain wird später separat migriert, nicht überschrieben.</div></details></div></section>
+<section class="page" hidden="" id="approvals"><details class="panel" open=""><summary><span><strong>＋ Freigabe erfassen</strong><small>Entscheidungen dokumentieren – kein tatsächlicher Versand</small></span></summary><div class="inner"><form class="stack" id="approval-form"><select aria-label="Art der Aktion" class="field" id="approval-type"><option>E-Mail senden</option><option>Website-Registrierung</option><option>Externe Änderung</option><option>Kauf / Vertrag</option><option>Sonstige Aktion</option></select><textarea class="field" id="approval-description" maxlength="1200" placeholder="Welche konkrete Aktion soll freigegeben werden?" required="" rows="3"></textarea><button class="btn primary" type="submit">Testfreigabe anlegen</button></form><p class="note">Freigabe/Ablehnung wird nur lokal protokolliert. Keine externe Aktion wird ausgeführt.</p></div></details><div class="hero"><div class="eyebrow">KONTROLLE</div><h1>Freigaben</h1><p>Wichtige Aktionen müssen zunächst bestätigt werden.</p></div><details class="panel" open=""><summary><span><strong>Offene Entscheidungen</strong><small>Die hier erzeugten Testfreigaben führen nichts aus</small></span></summary><div class="inner"><button class="btn" id="approval-demo-two">Testfreigabe erstellen</button><div id="approval-list"></div></div></details><details class="panel"><summary><span><strong>◎ Frühere Entscheidungen</strong><small>Genehmigt und abgelehnt</small></span></summary><div class="inner" id="approval-history"></div></details></section>
+<section class="page" hidden="" id="activity"><div class="hero"><div class="eyebrow">VERLAUF</div><h1>Aktivitäten</h1><p>Nachvollziehbar, was in der lokalen Vorschau passiert ist.</p></div><details class="panel" open=""><summary><span><strong>Letzte Aktionen</strong><small>Maximal 80 Ereignisse lokal gespeichert</small></span></summary><div class="inner" id="activity-list"></div></details></section>
+<section class="page" hidden="" id="settings"><div class="hero"><div class="eyebrow">SYSTEMKONFIGURATION</div><h1>Einstellungen</h1><p>Selten benötigte Funktionen bleiben dezent eingeklappt.</p></div><div class="stack"><details class="panel" id="model-panel"><summary><span><strong>◈ KI-Modell &amp; intelligente Auswahl</strong><small id="model-caption">Aktives Backend: Llama 3.1 · Cloudflare</small></span></summary><div class="inner"><p class="note">Die Auswahl ist eine Vorschau. Das Backend wird hier noch nicht umgeschaltet, es werden keine zahlungspflichtigen Modelle gestartet.</p><div class="options"><label class="option"><input checked="" name="model" type="radio" value="llama"/><span><b>Llama 3.1 – Cloudflare</b><small>Aktuell verbundenes Backend · kostenloses Kontingent</small></span></label><label class="option"><input name="model" type="radio" value="auto"/><span><b>Automatische KI-Auswahl</b><small>Später: JARVIS wählt je Auftrag das geeignete freigegebene Modell</small></span></label><label class="option"><input name="model" type="radio" value="gpt"/><span><b>OpenAI GPT</b><small>Später: eigene API-Verbindung und Kostenfreigabe erforderlich</small></span></label><label class="option"><input name="model" type="radio" value="claude"/><span><b>Anthropic Claude</b><small>Später: eigene API-Verbindung und Kostenfreigabe erforderlich</small></span></label><label class="option"><input name="model" type="radio" value="local"/><span><b>Lokale KI – Mac mini</b><small>Spätere Ausbaustufe</small></span></label></div><p class="note" id="model-message">Kein automatischer Wechsel aktiv.</p></div></details><details class="panel"><summary><span><strong>☼ Morning Briefing</strong><small>Beim ersten Öffnen morgens</small></span></summary><div class="inner"><p>Zwischen 05:00 und 12:00 Uhr beim ersten Aufruf eines Tages. Später ergänzen wir Nachrichten, Kalender und abgeschlossene Nachtaufträge.</p><button class="btn" id="brief-reopen">Briefing jetzt anzeigen</button></div></details><details class="panel"><summary><span><strong>◫ Ressourcen &amp; KI-Kosten</strong><small>Neurons · Anfragen · Budget</small></span></summary><div class="inner"><p class="note">Der Ressourcenmonitor oben rechts zeigt bewusst keine erfundenen Nutzungsdaten. Live-Messwerte brauchen eine sichere Backend-Anbindung.</p><button class="btn" id="limits-from-settings">Monitor öffnen</button></div></details><details class="panel"><summary><span><strong>♧ Daten exportieren und importieren</strong><small>Lokale Vorschau sichern</small></span></summary><div class="inner"><p class="note">Export enthält Aufgaben, Notizen, Testfreigaben und Verlauf. Bitte nur auf vertrauenswürdigen Geräten speichern.</p><div class="line"><button class="btn" id="export-data">JSON-Sicherung exportieren</button><label class="btn" for="import-data">Sicherung importieren</label><input accept="application/json,.json" hidden="" id="import-data" type="file"/></div><div class="line section"><button class="btn" id="old-data-copy" type="button">JARVIS 0.5-Daten aus diesem Browser kopieren</button></div><p class="note" id="import-status">Unterstützt JARVIS-0.9-Sicherungen und alte JARVIS-0.5-JSON-Exporte. Vorhandene 0.5-Daten bleiben erhalten. Private Backups niemals öffentlich hochladen.</p></div></details><details class="panel"><summary><span><strong>⊞ JARVIS Studio &amp; Erweiterungen</strong><small>Module · GitHub · zukünftige Selbstentwicklung</small></span></summary><div class="inner muted">Später: JARVIS erstellt Änderungen auf einem eigenen Branch, prüft Tests und zeigt dir vor jeder Veröffentlichung eine Vorschau. KI-Router, Kalender, Agenten und Mac-mini-Steuerung bleiben austauschbare Module.</div></details><details class="panel"><summary><span><strong>▣ Sicherheit &amp; Anmeldung</strong><small>Derzeit öffentliche Vorschauseite</small></span></summary><div class="inner"><p class="bad">Diese Datei ist noch NICHT an deinen JARVIS-Login gebunden. Keine Passwörter, API-Schlüssel oder privaten Informationen eingeben.</p><p class="muted">Vor Produktivnutzung: Seiten und API-Endpunkte serverseitig absichern, lokale Demo-Daten getrennt migrieren und Debug-Code entfernen.</p></div></details></div></section>
+<div class="footer">JARVIS 0.9 · Modular Workspace · eigenständige Testdatei · keine Änderung an bestehendem Login oder Backend</div></main></div><nav aria-label="Mobile Navigation" id="bottomnav"></nav>
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const SECTIONS=[['dashboard','⌂','Übersicht'],['chat','✦','KI-Chat'],['orders','☷','Auftragszentrale'],['tasks','☑','Aufgaben'],['brain','◇','Second Brain'],['approvals','✓','Freigaben'],['activity','◷','Aktivitäten'],['settings','⚙','Einstellungen']];
+const KEY='jarvis09_workspace_v2'; const OLD_PREVIEW_KEY='jarvis09_workspace_v1'; const blank=()=>({tasks:[],orders:[],notes:[],approvals:[],events:[]});let db=blank();let filter='all',editing=null,current='dashboard';
+function cleanText(s,max){return String(s??'').trim().slice(0,max)}
+function newId(){return typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)}
+function load(){try{let saved=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLD_PREVIEW_KEY)||'null');if(saved&&typeof saved==='object'){for(const k of Object.keys(db))if(Array.isArray(saved[k]))db[k]=saved[k].slice(0,k==='events'?80:200);}}catch{}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch{alert('Lokaler Speicher ist voll oder nicht verfügbar. Bitte eine Sicherung exportieren.')}}
+function log(message){db.events.unshift({id:newId(),message,time:new Date().toISOString()});db.events=db.events.slice(0,80);persist();renderActivity()}
+function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
+function show(id){if(!SECTIONS.some(s=>s[0]===id))return;current=id;$$('.page').forEach(x=>x.hidden=x.id!==id);$('#page-label').textContent=SECTIONS.find(s=>s[0]===id)[2].toUpperCase();renderNav();window.scrollTo({top:0,behavior:'smooth'});}
+function renderNav(){const build=(target,entries)=>{target.replaceChildren();entries.forEach(([id,icon,name])=>{const btn=el('button',id===current?'active':'',icon+' '+(target.id==='bottomnav'?({dashboard:'Start',chat:'Chat',orders:'Aufträge',brain:'Wissen',settings:'Mehr'}[id]||name):name));btn.onclick=()=>show(id);target.append(btn)})};build($('#sidebar'),SECTIONS);build($('#bottomnav'),[SECTIONS[0],SECTIONS[1],SECTIONS[2],SECTIONS[4],SECTIONS[7]])}
+$$('[data-page]').forEach(b=>b.onclick=()=>show(b.dataset.page));
+      
+// JARVIS 0.9 – Dashboard Schnellübersicht
+// Nutzt die bestehenden lokalen Daten und Funktionen.
+
+const quickCards = [...document.querySelectorAll(
+  "#dashboard > .grid > .stat"
+)];
+
+const quickPages = [
+  "tasks", "brain", "approvals", "orders"
+];
+
+const quickPanel = el("div", "panel");
+quickPanel.id = "dashboard-quick-panel";
+quickPanel.hidden = true;
+quickPanel.style.marginBottom = "12px";
+
+const quickContent = el("div", "inner");
+quickPanel.append(quickContent);
+
+const statsGrid = $("#dashboard > .grid");
+statsGrid.after(quickPanel);
+
+let activeQuick = null;
+
+function quickButton(label, action) {
+  const button = el("button", "btn quiet", label);
+  button.type = "button";
+  button.onclick = action;
+  return button;
+}
+
+function quickOpen(page, index = -1) {
+  if (page === "tasks") {
+    filter = "all";
+    paint();
+  }
+
+  if (page === "brain") {
+    $("#note-search").value = "";
+    renderNotes();
+  }
+
+  show(page);
+
+  if (index >= 0) {
+    const selector = {
+      tasks: "#task-list .item",
+      brain: "#note-list .item",
+      approvals: "#approval-list .item",
+      orders: "#order-list .order-box"
+    }[page];
+
+    const rows = document.querySelectorAll(selector);
+    const row = rows[index];
+
+    if (row) {
+      if (page === "brain") {
+        row.querySelector("button")?.click();
+      }
+      row.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+  }
+}
 
 function renderQuick() {
   if (!activeQuick) return;
@@ -5,7 +163,6 @@ function renderQuick() {
   quickContent.replaceChildren();
 
   const page = activeQuick;
-
   const names = {
     tasks: "Offene Aufgaben",
     brain: "Notizen",
@@ -19,7 +176,6 @@ function renderQuick() {
   heading.append(quickButton("×", () => {
     activeQuick = null;
     quickPanel.hidden = true;
-
     quickCards.forEach(card =>
       card.setAttribute("aria-expanded", "false")
     );
@@ -51,7 +207,7 @@ function renderQuick() {
     const row = el("div", "item");
     const content = el("div", "grow");
 
-    const title = entry.title || entry.goal || "Ohne Titel";
+    let title = entry.title || entry.goal || "Ohne Titel";
 
     const openEntry = () => {
       let index = -1;
@@ -101,93 +257,14 @@ function renderQuick() {
 
     content.append(link);
 
-    // Notizen: Inhalt direkt anzeigen.
-    if (page === "brain") {
-      const preview = el(
-        "div",
-        "muted",
-        String(entry.body || "").slice(0, 300)
-      );
-
-      preview.style.whiteSpace = "pre-wrap";
-      preview.style.fontSize = "13px";
-      content.append(preview);
-    }
-
-    // Freigaben: Beschreibung anzeigen.
-    if (page === "approvals") {
-      const description = el(
-        "div",
-        "muted",
-        String(entry.description || "").slice(0, 300)
-      );
-
-      description.style.whiteSpace = "pre-wrap";
-      content.append(description);
-    }
-
-    // Aufträge: Alle Arbeitsschritte einzeln anzeigen.
     if (page === "orders") {
-      const steps = entry.steps || [];
-
-      const completed = steps.filter(s => s.done).length;
-
       content.append(el(
         "small",
         null,
-        completed + " / " + steps.length +
+        (entry.steps || []).filter(s => s.done).length +
+        " / " + (entry.steps || []).length +
         " Schritte erledigt"
       ));
-
-      const stepList = el("div");
-      stepList.style.marginTop = "12px";
-      stepList.style.display = "flex";
-      stepList.style.flexDirection = "column";
-      stepList.style.gap = "10px";
-
-      steps.forEach(step => {
-        const stepRow = el("label");
-        stepRow.style.display = "flex";
-        stepRow.style.alignItems = "flex-start";
-        stepRow.style.gap = "10px";
-        stepRow.style.cursor = "pointer";
-
-        const check = el("input");
-        check.type = "checkbox";
-        check.checked = !!step.done;
-        check.style.marginTop = "3px";
-
-        const text = el(
-          "span",
-          step.done ? "done" : "",
-          step.title || "Arbeitsschritt"
-        );
-
-        check.onchange = () => {
-          step.done = check.checked;
-          persist();
-
-          log(
-            step.done
-              ? "Arbeitsschritt abgeschlossen"
-              : "Arbeitsschritt wieder geöffnet"
-          );
-
-          paint();
-          renderOrders();
-        };
-
-        stepRow.append(check, text);
-        stepList.append(stepRow);
-      });
-
-      if (!steps.length) {
-        stepList.append(
-          el("small", "muted", "Keine Arbeitsschritte vorhanden.")
-        );
-      }
-
-      content.append(stepList);
     }
 
     row.append(content);
@@ -196,13 +273,9 @@ function renderQuick() {
       const decide = (status) => {
         entry.status = status;
         persist();
-
-        log(
-          status === "approved"
-            ? "Testfreigabe bestätigt"
-            : "Testfreigabe abgelehnt"
-        );
-
+        log(status === "approved"
+          ? "Testfreigabe bestätigt"
+          : "Testfreigabe abgelehnt");
         paint();
       };
 
@@ -219,10 +292,14 @@ function renderQuick() {
 
   const footer = el("div", "section");
 
-  const all = el("button", "btn", "Alle anzeigen →");
+  const all = el(
+    "button",
+    "btn",
+    "Alle anzeigen →"
+  );
+
   all.type = "button";
   all.onclick = () => quickOpen(page);
-
   footer.append(all);
   quickContent.append(footer);
 }
@@ -806,4 +883,3 @@ load();renderNav();paint();renderOrders();renderNotes();renderActivity();
 <script src="/jarvis-cloud-chat-manager.js" defer></script>
 </body>
 </html>
-
