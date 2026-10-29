@@ -1007,18 +1007,75 @@
     // Expliziter Aufgabenbefehl: Vorschau statt KI-Anfrage.
     const task = parseTaskCommand(message);
 
-    if (task) {
-      showTaskConfirmation(task, message);
+    
+if (task) {
+  const taskChatId = activeId;
 
+  setBusy(true);
+  setStatus("JARVIS speichert deine Aufgabe …");
+
+  try {
+    const data = await api("/api/tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(task)
+    });
+
+    if (
+      data.success !== true ||
+      !data.task?.id
+    ) {
+      throw new Error("Speicherung nicht bestätigt");
+    }
+
+    // Erst nach bestätigter Speicherung
+    // die Eingabe leeren.
+    if (input.value.trim() === message) {
       input.value = "";
       resizeComposerInput();
+    }
 
-      setStatus(
-        "Aufgabe prüfen und bei Bedarf speichern."
+    // Erfolg direkt im Chat anzeigen.
+    if (activeId === taskChatId) {
+      const result = node(
+        "div",
+        "jcm-message jcm-assistant",
+        "✓ Aufgabe gespeichert: " + data.task.title +
+        (data.task.due
+          ? "\nFällig: " + data.task.due
+          : "") +
+        "\nDu findest sie unter Meine Aufgaben."
       );
 
-      return;
+      messages.append(result);
+      messages.scrollTop = messages.scrollHeight;
     }
+
+    setStatus("Aufgabe in Cloudflare D1 gespeichert.");
+
+    // Aufgabenansicht über neue Daten informieren.
+    window.dispatchEvent(
+      new CustomEvent("jarvis:tasks-updated", {
+        detail: { task: data.task }
+      })
+    );
+
+  } catch (error) {
+    setStatus(
+      "Aufgabe konnte nicht bestätigt gespeichert werden: " +
+      error.message +
+      ". Bitte vor einem erneuten Versuch " +
+      "die Aufgabenliste überprüfen."
+    );
+  } finally {
+    setBusy(false);
+  }
+
+  return;
+}
+
 
     const selected = document.querySelector(
       'input[name="model"]:checked'
