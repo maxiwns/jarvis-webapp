@@ -1017,4 +1017,132 @@ window.addEventListener(
 
 syncJarvisChatLayout();
 
+// JARVIS – Einheitliche, kompakte Chat-Eingabe
+
+// Vorhandene Buttons und Eingabe neu anordnen.
+// Alle bestehenden Klickfunktionen bleiben erhalten.
+composer.replaceChildren(
+  plusButton,
+  microphone,
+  input,
+  reload,
+  send
+);
+
+// Einfarbiges Mikrofon statt Platzhalter
+microphone.innerHTML = `
+  <svg width="20" height="20" viewBox="0 0 24 24"
+       fill="none" stroke="currentColor"
+       stroke-width="1.8" stroke-linecap="round"
+       stroke-linejoin="round" aria-hidden="true">
+    <rect x="9" y="2" width="6" height="12" rx="3"/>
+    <path d="M5 10a7 7 0 0 0 14 0"/>
+    <path d="M12 17v5"/>
+    <path d="M8 22h8"/>
+  </svg>
+`;
+
+// Kompaktes Aktualisieren-Symbol
+reload.innerHTML = `
+  <svg width="18" height="18" viewBox="0 0 24 24"
+       fill="none" stroke="currentColor"
+       stroke-width="1.8" stroke-linecap="round"
+       stroke-linejoin="round" aria-hidden="true">
+    <path d="M20 11a8 8 0 1 1-2.4-5.7"/>
+    <path d="M20 4v6h-6"/>
+  </svg>
+`;
+reload.className = "jcm-tool-button";
+reload.title = "Chat aktualisieren";
+reload.setAttribute("aria-label", "Chat aktualisieren");
+
+// Mittig ausgerichteter SVG-Sendepfeil
+send.innerHTML = `
+  <svg width="20" height="20" viewBox="0 0 24 24"
+       fill="none" stroke="currentColor"
+       stroke-width="2.2" stroke-linecap="round"
+       stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 19V5"/>
+    <path d="m5 12 7-7 7 7"/>
+  </svg>
+`;
+
+// Die endgültigen CSS-Regeln werden zuletzt geladen.
+const finalComposerStyle = document.createElement("style");
+
+finalComposerStyle.textContent = `
+  #jarvis-cloud-manager .jcm-composer {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 7px !important;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px !important;
+    border-radius: 18px;
+    flex: 0 0 auto !important;
+  }
+
+  #jarvis-cloud-manager textarea.jcm-composer-input {
+    flex: 1 1 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 24px !important;
+    max-height: 144px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    resize: none !important;
+    line-height: 24px !important;
+    overflow-y: hidden;
+    font-size: 14px;
+  }
+
+  #jarvis-cloud-manager .jcm-composer
+  > .jcm-tool-button,
+  #jarvis-cloud-manager .jcm-composer
+  > .jcm-send-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    border-radius: 50%;
+  }
+
+  #jarvis-cloud-manager .jcm-composer
+  > .jcm-send-button {
+    background: #eeeeef !important;
+    color: #17181a !important;
+  }
+`;
+
+document.head.append(finalComposerStyle);
+
+// Das Textfeld beim Start und beim Schreiben anpassen.
+function fitFinalComposer() {
+  input.style.height = "24px";
+
+  const height = Math.min(
+    Math.max(input.scrollHeight, 24),
+    144
+  );
+
+  input.style.height = height + "px";
+  input.style.overflowY =
+    input.scrollHeight > 144 ? "auto" : "hidden";
+}
+
+input.addEventListener("input", fitFinalComposer);
+fitFinalComposer();
+
 })();
