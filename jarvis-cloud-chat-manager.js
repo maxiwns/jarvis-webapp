@@ -1,5 +1,6 @@
 
-/* JARVIS 0.9 – Cloud-Chat in der Hauptoberfläche */
+/* JARVIS 0.9 – Cloud Chat mit Aufgabenverwaltung */
+
 (() => {
   "use strict";
 
@@ -14,26 +15,45 @@
   };
 
   const style = node("style");
+
   style.textContent = `
+    #chat > .hero { display:none !important; }
+
     #jarvis-cloud-manager {
       display:grid;
-      grid-template-columns:minmax(170px,230px) minmax(0,1fr);
-      gap:12px;
+      grid-template-columns:230px 14px minmax(0,1fr);
+      gap:0;
+      min-height:0;
+      overflow:hidden;
     }
+
     #jarvis-cloud-manager .jcm-panel {
       background:#1c1d20;
       border:1px solid #3a3b40;
       border-radius:14px;
       padding:14px;
       min-width:0;
+      min-height:0;
     }
+
+    #jarvis-cloud-manager .jcm-panel:first-child {
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+
     #jarvis-cloud-manager .jcm-list {
       display:grid;
+      align-content:start;
       gap:6px;
-      max-height:450px;
-      overflow:auto;
+      flex:1;
+      min-height:0;
+      overflow-y:auto;
       margin-top:12px;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
     }
+
     #jarvis-cloud-manager .jcm-chat {
       background:#292a2e;
       color:#ededee;
@@ -43,23 +63,33 @@
       text-align:left;
       overflow-wrap:anywhere;
     }
+
     #jarvis-cloud-manager .jcm-chat.active {
       background:#38393d;
       border-color:#99999e;
     }
+
     #jarvis-cloud-manager .jcm-main {
       display:flex;
       flex-direction:column;
       gap:12px;
+      min-width:0;
+      min-height:0;
+      overflow:hidden;
     }
+
     #jarvis-cloud-manager .jcm-messages {
       display:flex;
       flex-direction:column;
       gap:12px;
-      height:370px;
-      overflow:auto;
+      flex:1;
+      min-height:0;
+      overflow-y:auto;
       padding:8px 0;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
     }
+
     #jarvis-cloud-manager .jcm-message {
       max-width:88%;
       padding:11px 13px;
@@ -67,133 +97,135 @@
       white-space:pre-wrap;
       overflow-wrap:anywhere;
     }
+
     #jarvis-cloud-manager .jcm-user {
       align-self:flex-end;
       background:#3c3d41;
     }
+
     #jarvis-cloud-manager .jcm-assistant {
       align-self:flex-start;
       background:#242529;
       border:1px solid #3a3b3f;
     }
+
     #jarvis-cloud-manager .jcm-note {
       font-size:12px;
       color:#aaaeb5;
     }
-    #jarvis-cloud-manager textarea {
-      min-height:90px;
-      resize:vertical;
+
+    #jarvis-cloud-manager .jcm-divider {
+      width:14px;
+      min-width:14px;
+      cursor:col-resize;
+      touch-action:none;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      user-select:none;
     }
-    @media(max-width:700px) {
-      #jarvis-cloud-manager {
-        grid-template-columns:1fr;
-      }
-      #jarvis-cloud-manager .jcm-list {
-        max-height:125px;
-      }
-      #jarvis-cloud-manager .jcm-messages {
-        height:330px;
-      }
-      
-#jarvis-cloud-manager .jcm-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  flex-shrink: 0;
-  background: #242529;
-  border: 1px solid #48494e;
-  border-radius: 17px;
-  padding: 10px 12px;
-}
 
-#jarvis-cloud-manager .jcm-composer-input {
-  min-height: 24px;
-  height: 24px;
-  max-height: 160px;
-  width: 100%;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: #f1f1f2;
-  padding: 0;
-  line-height: 24px;
-  box-shadow: none;
-}
+    #jarvis-cloud-manager .jcm-divider::after {
+      content:"";
+      display:block;
+      width:4px;
+      height:68px;
+      border-radius:8px;
+      background:#777980;
+    }
 
-#jarvis-cloud-manager .jcm-composer-tools {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
+    #jarvis-cloud-manager .jcm-composer {
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      align-items:center;
+      gap:7px;
+      width:100%;
+      min-width:0;
+      padding:8px 10px;
+      background:#242529;
+      border:1px solid #48494e;
+      border-radius:18px;
+      flex:0 0 auto;
+    }
 
-#jarvis-cloud-manager .jcm-tool-button {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #e5e5e8;
-  font-size: 26px;
-}
+    #jarvis-cloud-manager textarea.jcm-composer-input {
+      flex:1 1 0;
+      width:100%;
+      min-width:0;
+      min-height:24px;
+      max-height:144px;
+      height:24px;
+      margin:0;
+      padding:0 10px;
+      border:0;
+      border-radius:12px;
+      background:#2d2e32;
+      color:#f1f1f2;
+      box-shadow:none;
+      resize:none;
+      outline:none;
+      line-height:24px;
+      overflow-y:hidden;
+      font-size:14px;
+    }
 
-#jarvis-cloud-manager .jcm-tool-button:disabled {
-  opacity: 0.35;
-}
+    #jarvis-cloud-manager .jcm-tool-button,
+    #jarvis-cloud-manager .jcm-send-button {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 32px;
+      width:32px;
+      height:32px;
+      min-width:32px;
+      margin:0;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      line-height:1;
+    }
 
-#jarvis-cloud-manager .jcm-send-button {
-  margin-left: auto;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 50%;
-  background: #eeeeef;
-  color: #17181a;
-  font-size: 23px;
-  font-weight: bold;
-}
+    #jarvis-cloud-manager .jcm-tool-button {
+      color:#d0d1d5;
+      background:transparent;
+      font-size:26px;
+    }
 
-#jarvis-cloud-manager .jcm-send-button:disabled {
-  opacity: 0.45;
-}
-#jarvis-cloud-manager .jcm-composer {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-}
+    #jarvis-cloud-manager .jcm-send-button {
+      background:#eeeeef;
+      color:#17181a;
+    }
 
-#jarvis-cloud-manager textarea.jcm-composer-input {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  min-height: 24px !important;
-  height: 24px;
-  max-height: 160px;
-  padding: 0;
-  border: none;
-  resize: none;
-  background: transparent;
-  line-height: 24px;
-}
+    #jarvis-cloud-manager .jcm-tool-button:disabled,
+    #jarvis-cloud-manager .jcm-send-button:disabled {
+      opacity:.45;
+    }
 
-#jarvis-cloud-manager .jcm-tool-button,
-#jarvis-cloud-manager .jcm-send-button {
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
+    body.jarvis-chat-active {
+      overflow:hidden !important;
+      overscroll-behavior:none;
+    }
 
-#jarvis-cloud-manager .jcm-send-button {
-  margin-left: 0;
-}
+    body.jarvis-chat-active #chat {
+      overflow:hidden;
+      min-height:0;
+    }
 
+    #jarvis-cloud-manager .jcm-task-preview {
+      display:grid;
+      gap:9px;
+      max-width:100%;
+      align-self:stretch;
+    }
+
+    #jarvis-cloud-manager .jcm-task-actions {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
     }
   `;
+
   document.head.append(style);
 
   const oldPanel = page.querySelector("details.panel");
@@ -205,11 +237,12 @@
   const side = node("div", "jcm-panel");
   const create = node("button", "btn primary", "+ Neuer Cloud-Chat");
   const search = node("input", "field");
+  const list = node("div", "jcm-list");
+
   search.placeholder = "Cloud-Chats suchen";
   search.setAttribute("aria-label", "Cloud-Chats suchen");
   search.style.marginTop = "12px";
 
-  const list = node("div", "jcm-list");
   const notice = node(
     "p",
     "jcm-note",
@@ -219,254 +252,187 @@
 
   side.append(create, search, list, notice);
 
+  const divider = node("div", "jcm-divider");
+  divider.setAttribute("role", "separator");
+  divider.setAttribute(
+    "aria-label",
+    "Chatliste vergrößern oder verkleinern"
+  );
+  divider.setAttribute("aria-orientation", "vertical");
+
   const main = node("div", "jcm-panel jcm-main");
   const title = node("strong", null, "Cloud-Chat");
   const messages = node("div", "jcm-messages");
   messages.setAttribute("role", "log");
 
-  const input = node("textarea", "field");
-  input.placeholder = "Schreib JARVIS eine Nachricht …";
+  const input = node("textarea", "field jcm-composer-input");
+  input.rows = 1;
   input.maxLength = 2000;
+  input.placeholder = "Nachricht an JARVIS …";
 
-  const actions = node("div", "line");
-  const status = node("span", "jcm-note", "Cloud-Verbindung wird geprüft …");
+  const status = node(
+    "span",
+    "jcm-note",
+    "Cloud-Verbindung wird geprüft …"
+  );
   status.setAttribute("role", "status");
 
-  const send = node("button", "btn primary", "Senden");
-  const reload = node("button", "btn quiet", "Aktualisieren");
+  const plusButton = node("button", "jcm-tool-button", "+");
+  plusButton.type = "button";
+  plusButton.title = "Dateien und Bilder anhängen";
+  plusButton.setAttribute("aria-label", "Anhänge öffnen");
 
-  
-// Kompakte JARVIS-Eingabeleiste
-const composer = node("div", "jcm-composer");
-const composerTools = node("div", "jcm-composer-tools");
+  const microphone = node("button", "jcm-tool-button");
+  microphone.type = "button";
+  microphone.disabled = true;
+  microphone.title = "Spracheingabe – später verfügbar";
+  microphone.setAttribute("aria-label", "Spracheingabe");
 
-const plusButton = node("button", "jcm-tool-button", "+");
-plusButton.type = "button";
-plusButton.title = "Dateien und Bilder anhängen";
-plusButton.setAttribute("aria-label", "Anhänge öffnen");
+  microphone.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true">
+      <rect x="9" y="2" width="6" height="12" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <path d="M12 17v5"/>
+      <path d="M8 22h8"/>
+    </svg>
+  `;
 
-const microphone = node("button", "jcm-tool-button");
+  const reload = node("button", "jcm-tool-button");
+  reload.type = "button";
+  reload.title = "Chat aktualisieren";
+  reload.setAttribute("aria-label", "Chat aktualisieren");
 
-microphone.innerHTML = `
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <rect x="9" y="2" width="6" height="12" rx="3"/>
-    <path d="M5 10a7 7 0 0 0 14 0"/>
-    <path d="M12 17v5"/>
-    <path d="M8 22h8"/>
-  </svg>
-`;
-microphone.type = "button";
-microphone.title = "Spracheingabe – später verfügbar";
-microphone.setAttribute("aria-label", "Spracheingabe");
-microphone.disabled = true;
+  reload.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true">
+      <path d="M20 11a8 8 0 1 1-2.4-5.7"/>
+      <path d="M20 4v6h-6"/>
+    </svg>
+  `;
 
-input.rows = 1;
-input.placeholder = "Nachricht an JARVIS …";
-input.classList.add("jcm-composer-input");
+  const send = node("button", "jcm-send-button");
+  send.type = "button";
+  send.title = "Nachricht senden";
+  send.setAttribute("aria-label", "Nachricht senden");
 
-send.textContent = "↑";
-send.className = "jcm-send-button";
-send.setAttribute("aria-label", "Nachricht senden");
-send.title = "Nachricht senden";
+  send.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true">
+      <path d="M12 19V5"/>
+      <path d="m5 12 7-7 7 7"/>
+    </svg>
+  `;
 
-// Anhänge werden erst nach Backend-Anbindung unterstützt.
-plusButton.onclick = () => {
-  setStatus(
-    "Bilder und Dokumente folgen mit der Datei-Upload-Funktion. " +
-    "Aktuell unterstützt der Cloud-Chat nur Text."
-  );
-};
+  const composer = node("div", "jcm-composer");
+  composer.append(plusButton, microphone, input, reload, send);
 
-reload.textContent = "↻";
-reload.className = "jcm-tool-button";
-reload.title = "Chat aktualisieren";
-reload.setAttribute("aria-label", "Chat aktualisieren");
-
-composer.append(
-  plusButton,
-  microphone,
-  input,
-  reload,
-  send
-);
-
-main.append(title, messages, composer, status);
-
-// Textfeld wächst automatisch mit dem Inhalt.
-function resizeComposerInput() {
-  input.style.height = "auto";
-  input.style.height =
-    Math.min(input.scrollHeight, 160) + "px";
-  input.style.overflowY =
-    input.scrollHeight > 160 ? "auto" : "hidden";
-}
-
-input.addEventListener("input", resizeComposerInput);
-resizeComposerInput();
-
-  root.append(side, main);
+  main.append(title, messages, composer, status);
+  root.append(side, divider, main);
   page.append(root);
-
-// JARVIS – Kompakte Kopfzeile und verschiebbare Chatliste
-
-const splitStyle = node("style");
-
-splitStyle.textContent = `
-  /* Großen KI-Chat-Kasten nur auf der Chatseite ausblenden */
-  #chat > .hero {
-    display: none;
-  }
-
-  /* Verschiebbare Trennleiste */
-  #jarvis-cloud-manager .jcm-divider {
-    width: 14px;
-    min-width: 14px;
-    cursor: col-resize;
-    touch-action: none;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    user-select: none;
-  }
-
-  #jarvis-cloud-manager .jcm-divider::after {
-    content: "";
-    display: block;
-    width: 4px;
-    height: 68px;
-    border-radius: 8px;
-    background: #777980;
-  }
-
-  #jarvis-cloud-manager .jcm-divider:hover::after {
-    background: #c6c7ce;
-  }
-
-  #jarvis-cloud-manager > .jcm-panel:first-child {
-    min-width: 0;
-  }
-
-  #jarvis-cloud-manager .jcm-main {
-    min-width: 0;
-  }
-`;
-
-document.head.append(splitStyle);
-
-// Trennleiste zwischen Chatliste und Chat setzen
-const divider = node("div", "jcm-divider");
-
-divider.setAttribute("role", "separator");
-divider.setAttribute("aria-label", "Chatliste vergrößern oder verkleinern");
-divider.setAttribute("aria-orientation", "vertical");
-
-root.insertBefore(divider, main);
-
-// Breite der Chatliste merken
-const SIDEBAR_WIDTH_KEY = "jarvis_chat_sidebar_width";
-
-let sidebarWidth = 230;
-
-try {
-  const storedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-const savedWidth = storedWidth === null
-  ? 230
-  : Number(storedWidth);
-
-  if (Number.isFinite(savedWidth) &&
-      savedWidth >= 0 &&
-      savedWidth <= 800) {
-    sidebarWidth = savedWidth;
-  }
-} catch {}
-
-// Tatsächliche Breite anwenden
-function applySidebarWidth(width) {
-  const maxWidth = Math.max(
-    140,
-    Math.floor(root.clientWidth * 0.6)
-  );
-
-  sidebarWidth = width < 70
-    ? 0
-    : Math.max(140, Math.min(width, maxWidth));
-
-  side.hidden = false;
-side.style.visibility = sidebarWidth === 0
-  ? "hidden"
-  : "visible";
-side.style.pointerEvents = sidebarWidth === 0
-  ? "none"
-  : "auto";
-
-  root.classList.remove("jcm-collapsed");
-
-  root.style.gridTemplateColumns =
-    sidebarWidth + "px 14px minmax(0, 1fr)";
-}
-
-// Beim ersten Laden anwenden
-applySidebarWidth(sidebarWidth);
-
-let draggingDivider = false;
-
-divider.addEventListener("pointerdown", event => {
-  if (event.button !== 0 &&
-      event.pointerType === "mouse") return;
-
-  draggingDivider = true;
-
-  divider.setPointerCapture(event.pointerId);
-  event.preventDefault();
-});
-
-divider.addEventListener("pointermove", event => {
-  if (!draggingDivider) return;
-
-  const bounds = root.getBoundingClientRect();
-
-  const newWidth = event.clientX - bounds.left;
-
-  applySidebarWidth(newWidth);
-});
-
-function finishDividerDrag() {
-  if (!draggingDivider) return;
-
-  draggingDivider = false;
-
-  try {
-    localStorage.setItem(
-      SIDEBAR_WIDTH_KEY,
-      String(sidebarWidth)
-    );
-  } catch {}
-}
-
-divider.addEventListener("pointerup", finishDividerDrag);
-divider.addEventListener("pointercancel", finishDividerDrag);
-divider.addEventListener("lostpointercapture", finishDividerDrag);
-
-// Breite bei Bildschirmdrehung korrigieren
-window.addEventListener("resize", () => {
-  applySidebarWidth(sidebarWidth);
-});
 
   let chats = [];
   let activeId = null;
   let busy = false;
   let selectionVersion = 0;
+
+  const SIDEBAR_WIDTH_KEY = "jarvis_chat_sidebar_width";
+  let sidebarWidth = 230;
+
+  try {
+    const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (stored !== null) {
+      const value = Number(stored);
+      if (
+        Number.isFinite(value) &&
+        value >= 0 &&
+        value <= 800
+      ) {
+        sidebarWidth = value;
+      }
+    }
+  } catch {}
+
+  function applySidebarWidth(width) {
+    const maxWidth = Math.max(
+      140,
+      Math.floor(root.clientWidth * 0.6)
+    );
+
+    sidebarWidth = width < 70
+      ? 0
+      : Math.max(140, Math.min(width, maxWidth));
+
+    side.style.visibility =
+      sidebarWidth === 0 ? "hidden" : "visible";
+
+    side.style.pointerEvents =
+      sidebarWidth === 0 ? "none" : "auto";
+
+    root.style.gridTemplateColumns =
+      sidebarWidth + "px 14px minmax(0,1fr)";
+  }
+
+  applySidebarWidth(sidebarWidth);
+
+  let draggingDivider = false;
+
+  divider.addEventListener("pointerdown", event => {
+    if (
+      event.pointerType === "mouse" &&
+      event.button !== 0
+    ) return;
+
+    draggingDivider = true;
+    divider.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  divider.addEventListener("pointermove", event => {
+    if (!draggingDivider) return;
+
+    const bounds = root.getBoundingClientRect();
+    applySidebarWidth(event.clientX - bounds.left);
+  });
+
+  function finishDividerDrag() {
+    if (!draggingDivider) return;
+    draggingDivider = false;
+
+    try {
+      localStorage.setItem(
+        SIDEBAR_WIDTH_KEY,
+        String(sidebarWidth)
+      );
+    } catch {}
+  }
+
+  divider.addEventListener("pointerup", finishDividerDrag);
+  divider.addEventListener("pointercancel", finishDividerDrag);
+  divider.addEventListener(
+    "lostpointercapture",
+    finishDividerDrag
+  );
+
+  function setStatus(message) {
+    status.textContent = message;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    create.disabled = value;
+    send.disabled = value || !activeId;
+    reload.disabled = value;
+
+    // Schreiben bleibt während der KI-Antwort möglich.
+    input.disabled = false;
+  }
 
   async function api(url, options = {}) {
     const response = await fetch(url, {
@@ -484,27 +450,46 @@ window.addEventListener("resize", () => {
     return data;
   }
 
-  function setStatus(message) {
-    status.textContent = message;
+  function resizeComposerInput() {
+    input.style.height = "24px";
+
+    const height = Math.min(
+      Math.max(input.scrollHeight, 24),
+      144
+    );
+
+    input.style.height = height + "px";
+    input.style.overflowY =
+      input.scrollHeight > 144 ? "auto" : "hidden";
   }
 
-  function setBusy(value) {
-    busy = value;
-    create.disabled = value;
-    send.disabled = value || !activeId;
-    reload.disabled = value;
-    input.disabled = false;
-  }
+  input.addEventListener("input", resizeComposerInput);
+  resizeComposerInput();
+
+  plusButton.onclick = () => {
+    setStatus(
+      "Datei-Uploads sind noch nicht verbunden. " +
+      "Der Cloud-Chat unterstützt derzeit Text."
+    );
+  };
 
   function renderList() {
     list.replaceChildren();
+
     const query = search.value.trim().toLowerCase();
 
     for (const chat of chats.filter(c =>
       c.title.toLowerCase().includes(query)
     )) {
-      const button = node("button", "jcm-chat", chat.title);
+      const button = node(
+        "button",
+        "jcm-chat",
+        chat.title
+      );
+
       button.type = "button";
+      button.style.flex = "1";
+      button.style.minWidth = "0";
 
       if (chat.id === activeId) {
         button.classList.add("active");
@@ -515,110 +500,108 @@ window.addEventListener("resize", () => {
         if (!busy) openChat(chat.id);
       };
 
-      
-const row = node("div");
-row.style.display = "flex";
-row.style.gap = "6px";
-row.style.alignItems = "center";
+      const row = node("div");
+      row.style.display = "flex";
+      row.style.gap = "6px";
+      row.style.alignItems = "center";
 
-button.style.flex = "1";
-button.style.minWidth = "0";
+      const remove = node("button", "btn quiet");
+      remove.type = "button";
+      remove.title = "Chat löschen";
+      remove.style.padding = "10px";
+      remove.style.display = "inline-flex";
+      remove.style.alignItems = "center";
+      remove.style.justifyContent = "center";
+      remove.style.flexShrink = "0";
+      remove.style.color = "#c6c7ce";
 
-const remove = node("button", "btn quiet");
+      remove.setAttribute(
+        "aria-label",
+        "Chat löschen: " + chat.title
+      );
 
-remove.innerHTML = `
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="17"
-    height="17"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.8"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M3 6h18"/>
-    <path d="M8 6V4h8v2"/>
-    <path d="M19 6l-1 14H6L5 6"/>
-    <path d="M10 10v6"/>
-    <path d="M14 10v6"/>
-  </svg>
-`;
+      remove.innerHTML = `
+        <svg width="17" height="17" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <path d="M3 6h18"/>
+          <path d="M8 6V4h8v2"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 10v6"/>
+          <path d="M14 10v6"/>
+        </svg>
+      `;
 
-remove.style.display = "inline-flex";
-remove.style.alignItems = "center";
-remove.style.justifyContent = "center";
-remove.style.flexShrink = "0";
-remove.style.padding = "10px";
-remove.style.color = "#c6c7ce";
-remove.type = "button";
-remove.title = "Chat löschen";
-remove.setAttribute(
-  "aria-label",
-  "Chat löschen: " + chat.title
-);
+      remove.onclick = async () => {
+        if (busy) return;
 
-remove.onclick = async () => {
-  if (busy) return;
+        if (!confirm(
+          'Chat "' + chat.title +
+          '" und alle Nachrichten endgültig löschen?'
+        )) return;
 
-  if (!confirm(
-    'Chat "' + chat.title +
-    '" und alle Nachrichten endgültig löschen?'
-  )) return;
+        setBusy(true);
+        setStatus("Chat wird gelöscht …");
 
-  setBusy(true);
-  setStatus("Chat wird gelöscht …");
+        try {
+          const result = await api(
+            "/api/conversation-delete",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                chatId: chat.id
+              })
+            }
+          );
 
-  try {
-    const result = await api("/api/conversation-delete", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ chatId: chat.id })
-    });
+          if (result.deleted !== true) {
+            throw new Error("Löschen nicht bestätigt");
+          }
 
-    if (result.deleted !== true) {
-      throw new Error("Löschen nicht bestätigt");
-    }
+          if (activeId === chat.id) {
+            ++selectionVersion;
+            activeId = null;
+            messages.replaceChildren();
+            title.textContent = "Cloud-Chat";
+          }
 
-    if (activeId === chat.id) {
-      ++selectionVersion;
-      activeId = null;
-      messages.replaceChildren();
-      title.textContent = "Cloud-Chat";
-    }
+          await loadChats();
 
-    await loadChats();
+          setBusy(false);
 
-    setBusy(false);
+          if (!activeId && chats.length) {
+            await openChat(chats[0].id);
+          } else if (!chats.length) {
+            setStatus("Keine Cloud-Chats vorhanden.");
+          } else {
+            setStatus("Chat gelöscht.");
+          }
 
-    if (!activeId && chats.length) {
-      await openChat(chats[0].id);
-    } else if (!chats.length) {
-      setStatus("Keine Cloud-Chats vorhanden.");
-    } else {
-      setStatus("Chat gelöscht.");
-    }
+        } catch (error) {
+          setStatus(
+            "Löschen fehlgeschlagen: " + error.message
+          );
+        } finally {
+          setBusy(false);
+        }
+      };
 
-  } catch (error) {
-    setStatus("Löschen fehlgeschlagen: " + error.message);
-  } finally {
-    setBusy(false);
-  }
-};
-
-row.append(remove, button);
-list.append(row);
-
+      row.append(remove, button);
+      list.append(row);
     }
   }
 
   async function loadChats() {
     const data = await api("/api/conversations");
-    chats = Array.isArray(data.chats) ? data.chats : [];
+
+    chats = Array.isArray(data.chats)
+      ? data.chats
+      : [];
+
     renderList();
   }
 
@@ -630,13 +613,15 @@ list.append(row);
 
     const chat = chats.find(c => c.id === id);
     title.textContent = chat?.title || "Cloud-Chat";
+
     messages.replaceChildren();
     send.disabled = true;
     renderList();
 
     try {
       const data = await api(
-        "/api/messages?chatId=" + encodeURIComponent(id)
+        "/api/messages?chatId=" +
+        encodeURIComponent(id)
       );
 
       if (version !== selectionVersion) return;
@@ -645,9 +630,9 @@ list.append(row);
         messages.append(node(
           "div",
           "jcm-message " +
-            (message.role === "user"
-              ? "jcm-user"
-              : "jcm-assistant"),
+          (message.role === "user"
+            ? "jcm-user"
+            : "jcm-assistant"),
           message.content
         ));
       }
@@ -662,9 +647,12 @@ list.append(row);
 
       messages.scrollTop = messages.scrollHeight;
       setStatus("Cloud-Chat geladen.");
+
     } catch (error) {
       if (version === selectionVersion) {
-        setStatus("Laden fehlgeschlagen: " + error.message);
+        setStatus(
+          "Laden fehlgeschlagen: " + error.message
+        );
       }
     } finally {
       if (version === selectionVersion) {
@@ -675,22 +663,34 @@ list.append(row);
 
   create.onclick = async () => {
     if (busy) return;
+
     setBusy(true);
 
     try {
-      const data = await api("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Neuer Chat" })
-      });
+      const data = await api(
+        "/api/conversations",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title: "Neuer Chat"
+          })
+        }
+      );
 
       await loadChats();
 
       setBusy(false);
       await openChat(data.chat.id);
       input.focus();
+
     } catch (error) {
-      setStatus("Chat konnte nicht erstellt werden: " + error.message);
+      setStatus(
+        "Chat konnte nicht erstellt werden: " +
+        error.message
+      );
     } finally {
       setBusy(false);
     }
@@ -700,31 +700,323 @@ list.append(row);
 
   reload.onclick = async () => {
     if (busy) return;
+
     try {
       await loadChats();
 
-      if (activeId && chats.some(c => c.id === activeId)) {
+      if (
+        activeId &&
+        chats.some(c => c.id === activeId)
+      ) {
         await openChat(activeId);
       } else if (chats.length) {
         await openChat(chats[0].id);
       } else {
         setStatus("Noch keine Cloud-Chats vorhanden.");
       }
+
     } catch (error) {
-      setStatus("Aktualisierung fehlgeschlagen: " + error.message);
+      setStatus(
+        "Aktualisierung fehlgeschlagen: " +
+        error.message
+      );
     }
   };
 
+  // Eindeutige Aufgabenbefehle erkennen.
+  function parseTaskCommand(message) {
+    const match = message.match(
+      /^\s*(?:jarvis\s*[,!:–-]?\s*)?(?:bitte\s+)?(?:erstelle|erstell|lege|speichere|notiere)\s+(?:mir\s+)?(?:bitte\s+)?(?:eine?n?\s+)?(?:(wichtige|dringende|unwichtige)\s+)?aufgabe(?:\s+an)?\s*[:,-]?\s*(.+)$/is
+    );
+
+    if (!match) return null;
+
+    let taskTitle = match[2].trim();
+    const importance =
+      match[1]?.toLowerCase() || "";
+
+    const priority =
+      /unwichtig/i.test(importance)
+        ? "low"
+        : /wichtig|dringend/i.test(importance)
+          ? "high"
+          : "normal";
+
+    let due = "";
+
+    const relative = taskTitle.match(
+      /^(übermorgen|morgen)\b\s*[,.:–-]?\s*/i
+    );
+
+    if (relative) {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+
+      date.setDate(
+        date.getDate() +
+        (
+          relative[1].toLowerCase() === "übermorgen"
+            ? 2
+            : 1
+        )
+      );
+
+      const pad = n =>
+        String(n).padStart(2, "0");
+
+      due =
+        date.getFullYear() + "-" +
+        pad(date.getMonth() + 1) + "-" +
+        pad(date.getDate());
+
+      taskTitle =
+        taskTitle.slice(relative[0].length).trim();
+    }
+
+    taskTitle = taskTitle
+      .replace(/[.!]+$/, "")
+      .trim();
+
+    if (
+      !taskTitle ||
+      taskTitle.length > 160
+    ) return null;
+
+    return {
+      title: taskTitle,
+      priority,
+      due,
+      area: "Allgemein",
+      source: "chat"
+    };
+  }
+
+  // Aufgabe erst nach Bestätigung speichern.
+  function showTaskConfirmation(task, originalText) {
+    const preview = node(
+      "div",
+      "jcm-message jcm-assistant jcm-task-preview"
+    );
+
+    preview.append(
+      node("strong", null, "Aufgabe zur Freigabe")
+    );
+
+    preview.append(
+      node("div", null, task.title)
+    );
+
+    const priorityLabel =
+      task.priority === "high" ? "Wichtig" :
+      task.priority === "low" ? "Später" :
+      "Normal";
+
+    preview.append(node(
+      "small",
+      "jcm-note",
+      "Bereich: " + task.area +
+      " · Priorität: " + priorityLabel +
+      " · Fällig: " + (task.due || "Kein Datum")
+    ));
+
+    preview.append(node(
+      "small",
+      "jcm-note",
+      "Erst nach deiner Bestätigung in Cloudflare D1 gespeichert."
+    ));
+
+    const actions = node(
+      "div",
+      "jcm-task-actions"
+    );
+
+    const approve = node(
+      "button",
+      "btn primary",
+      "Aufgabe speichern"
+    );
+
+    const cancel = node(
+      "button",
+      "btn quiet",
+      "Abbrechen"
+    );
+
+    approve.type = "button";
+    cancel.type = "button";
+
+    actions.append(approve, cancel);
+    preview.append(actions);
+    messages.append(preview);
+
+    messages.scrollTop = messages.scrollHeight;
+
+    const originChatId = activeId;
+
+    cancel.onclick = () => {
+      preview.remove();
+
+      if (!input.value.trim()) {
+        input.value = originalText;
+        resizeComposerInput();
+      }
+
+      setStatus("Aufgabe nicht gespeichert.");
+    };
+
+    approve.onclick = async () => {
+      if (busy || originChatId !== activeId) {
+        setStatus(
+          "Bitte zuerst die laufende Anfrage beenden."
+        );
+        return;
+      }
+
+      approve.disabled = true;
+      cancel.disabled = true;
+
+      setStatus(
+        "Aufgabe wird in Cloudflare D1 gespeichert …"
+      );
+
+      try {
+        const data = await api("/api/tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(task)
+        });
+
+        if (
+          data.success !== true ||
+          !data.task?.id
+        ) {
+          throw new Error(
+            "Speicherung nicht bestätigt"
+          );
+        }
+
+        preview.replaceChildren(
+          node(
+            "strong",
+            null,
+            "Aufgabe erfolgreich gespeichert"
+          ),
+          node("div", null, data.task.title),
+          node(
+            "small",
+            "jcm-note",
+            "Die Aufgabe ist jetzt in Cloudflare D1 gespeichert."
+          )
+        );
+
+        setStatus(
+          "Aufgabe in Cloudflare D1 gespeichert."
+        );
+
+      } catch (error) {
+        approve.disabled = false;
+        cancel.disabled = false;
+
+        setStatus(
+          "Aufgabe nicht gespeichert: " +
+          error.message
+        );
+      }
+    };
+  }
+
+  function generateChatTitle(message) {
+    const clean = message
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const project = clean.match(
+      /\bProjekt\s+([\p{L}\p{N}-]+)/iu
+    );
+
+    if (project) {
+      return (
+        /\bApp\b/i.test(clean)
+          ? project[1] + " App"
+          : "Projekt " + project[1]
+      ).slice(0, 40);
+    }
+
+    if (/Second Brain/i.test(clean)) {
+      return "Second Brain";
+    }
+
+    if (/Automatisierung/i.test(clean)) {
+      return "Automatisierung";
+    }
+
+    if (/E-Mail|Mail/i.test(clean)) {
+      return "E-Mails";
+    }
+
+    if (/\bApp\b/i.test(clean)) {
+      return "App Entwicklung";
+    }
+
+    const stopWords = new Set([
+      "ich", "möchte", "will", "bitte",
+      "kannst", "du", "mir", "eine",
+      "einen", "ein", "der", "die",
+      "das", "und", "für", "mein",
+      "meine", "mit", "über", "was",
+      "wie", "ist", "soll", "sollst",
+      "helfen"
+    ]);
+
+    const words = clean
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .split(/\s+/)
+      .filter(word =>
+        word.length > 2 &&
+        !stopWords.has(word.toLowerCase())
+      );
+
+    return (
+      words.slice(0, 2).join(" ") ||
+      "Neues Thema"
+    ).slice(0, 40);
+  }
+
   send.onclick = async () => {
     if (!activeId || busy) {
-      setStatus("Bitte zuerst einen Cloud-Chat auswählen.");
+      setStatus(
+        "Bitte zuerst einen Cloud-Chat auswählen."
+      );
       return;
     }
 
     const message = input.value.trim();
 
-    if (message.length < 5 || message.length > 2000) {
-      setStatus("Bitte 5 bis 2000 Zeichen eingeben.");
+    if (
+      message.length < 5 ||
+      message.length > 2000
+    ) {
+      setStatus(
+        "Bitte 5 bis 2000 Zeichen eingeben."
+      );
+      return;
+    }
+
+    // Expliziter Aufgabenbefehl: Vorschau statt KI-Anfrage.
+    const task = parseTaskCommand(message);
+
+    if (task) {
+      showTaskConfirmation(task, message);
+
+      input.value = "";
+      resizeComposerInput();
+
+      setStatus(
+        "Aufgabe prüfen und bei Bedarf speichern."
+      );
+
       return;
     }
 
@@ -733,420 +1025,190 @@ list.append(row);
     )?.value || "llama";
 
     if (!["llama", "auto"].includes(selected)) {
-      setStatus("Dieses KI-Modell ist noch nicht verbunden.");
+      setStatus(
+        "Dieses KI-Modell ist noch nicht verbunden."
+      );
       return;
     }
-const shouldAutoRename =
-  chats.find(chat => chat.id === activeId)?.title === "Neuer Chat";
 
+    const chatId = activeId;
 
-// Kurzen Chatnamen aus dem Thema ableiten
-const cleanMessage = message.replace(/\s+/g, " ").trim();
+    const shouldAutoRename =
+      chats.find(c => c.id === chatId)
+        ?.title === "Neuer Chat";
 
-let generatedTitle = "Neues Thema";
-
-const projectMatch = cleanMessage.match(
-  /\bProjekt\s+([\p{L}\p{N}-]+)/iu
-);
-
-if (projectMatch) {
-  generatedTitle = /\bApp\b/i.test(cleanMessage)
-    ? projectMatch[1] + " App"
-    : "Projekt " + projectMatch[1];
-
-} else if (/Second Brain/i.test(cleanMessage)) {
-  generatedTitle = "Second Brain";
-
-} else if (/Automatisierung/i.test(cleanMessage)) {
-  generatedTitle = "Automatisierung";
-
-} else if (/E-Mail|Mail/i.test(cleanMessage)) {
-  generatedTitle = "E-Mails";
-
-} else if (/\bApp\b/i.test(cleanMessage)) {
-  generatedTitle = "App Entwicklung";
-
-} else {
-  const stopWords = new Set([
-    "ich", "möchte", "will", "bitte", "kannst",
-    "du", "mir", "eine", "einen", "ein", "der",
-    "die", "das", "und", "für", "mein",
-    "meine", "mit", "über", "was", "wie",
-    "ist", "soll", "sollst", "helfen"
-  ]);
-
-  const words = cleanMessage
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
-    .split(/\s+/)
-    .filter(word =>
-      word.length > 2 &&
-      !stopWords.has(word.toLowerCase())
-    );
-
-  generatedTitle =
-    words.slice(0, 2).join(" ") || "Neues Thema";
-}
-
-generatedTitle = generatedTitle.slice(0, 40);
+    const generatedTitle =
+      generateChatTitle(message);
 
     setBusy(true);
-setStatus("JARVIS denkt …");
+    setStatus("JARVIS denkt …");
 
-// Nachricht sofort anzeigen, noch bevor die KI antwortet
-const pendingMessage = node(
-  "div",
-  "jcm-message jcm-user",
-  message
-);
+    const pendingMessage = node(
+      "div",
+      "jcm-message jcm-user",
+      message
+    );
 
-messages.append(pendingMessage);
-messages.scrollTop = messages.scrollHeight;
-input.value = "";
+    messages.append(pendingMessage);
+    messages.scrollTop = messages.scrollHeight;
 
-try {
-      const data = await api("/api/conversation-turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId: activeId,
-          message,
-          model: selected
-        })
-      });
+    // Nur die bereits gesendete Nachricht entfernen.
+    input.value = "";
+    resizeComposerInput();
+
+    try {
+      const data = await api(
+        "/api/conversation-turn",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            chatId,
+            message,
+            model: selected
+          })
+        }
+      );
 
       if (data.saved !== true) {
-        throw new Error("Speicherung nicht bestätigt");
+        throw new Error(
+          "Speicherung nicht bestätigt"
+        );
       }
+
       if (shouldAutoRename) {
-  try {
-    await api("/api/conversation-rename", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        chatId: activeId,
-        title: generatedTitle
-      })
-    });
-  } catch (renameError) {
-    console.warn("Automatische Benennung fehlgeschlagen");
-  }
-}
+        try {
+          await api(
+            "/api/conversation-rename",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                chatId,
+                title: generatedTitle
+              })
+            }
+          );
+        } catch {
+          console.warn(
+            "Automatische Benennung fehlgeschlagen"
+          );
+        }
+      }
+
       await loadChats();
 
       setBusy(false);
-      await openChat(activeId);
+      await openChat(chatId);
 
       setStatus(
         "Nachricht gespeichert · Modell: " +
         (data.model || "nicht angegeben")
       );
-    } catch (error) {
-  pendingMessage.remove();
-  input.value = message;
 
-  setStatus(
-    "Senden nicht bestätigt: " + error.message +
-    " – Bitte vor einem erneuten Versuch den Chat aktualisieren."
-  );
-} finally {
+    } catch (error) {
+      pendingMessage.remove();
+
+      // Einen inzwischen geschriebenen Entwurf nicht löschen.
+      if (!input.value.trim()) {
+        input.value = message;
+        resizeComposerInput();
+      }
+
+      setStatus(
+        "Senden nicht bestätigt: " +
+        error.message +
+        " – Bitte vor erneutem Senden Chat aktualisieren."
+      );
+
+    } finally {
       setBusy(false);
     }
   };
 
   input.addEventListener("keydown", event => {
-    if (event.key === "Enter" &&
-        (event.ctrlKey || event.metaKey)) {
+    if (
+      event.key === "Enter" &&
+      (event.ctrlKey || event.metaKey)
+    ) {
       event.preventDefault();
       send.click();
     }
   });
+
+  function resizeJarvisChat() {
+    if (page.hidden) return;
+
+    const bottomNav =
+      document.getElementById("bottomnav");
+
+    const bottomHeight =
+      bottomNav &&
+      getComputedStyle(bottomNav).display !== "none"
+        ? bottomNav.getBoundingClientRect().height
+        : 0;
+
+    const top = root.getBoundingClientRect().top;
+
+    const available =
+      window.innerHeight - top - bottomHeight - 10;
+
+    const height = Math.max(180, available);
+
+    root.style.height = height + "px";
+    root.style.maxHeight = height + "px";
+  }
+
+  function syncJarvisChatLayout() {
+    const visible = !page.hidden;
+
+    document.body.classList.toggle(
+      "jarvis-chat-active",
+      visible
+    );
+
+    if (visible) {
+      resizeJarvisChat();
+      applySidebarWidth(sidebarWidth);
+    } else {
+      root.style.height = "";
+      root.style.maxHeight = "";
+    }
+  }
+
+  const chatVisibilityObserver =
+    new MutationObserver(syncJarvisChatLayout);
+
+  chatVisibilityObserver.observe(page, {
+    attributes: true,
+    attributeFilter: ["hidden"]
+  });
+
+  window.addEventListener(
+    "resize",
+    syncJarvisChatLayout
+  );
 
   loadChats()
     .then(async () => {
       if (chats.length) {
         await openChat(chats[0].id);
       } else {
-        setStatus("Bereit. Erstelle deinen ersten Cloud-Chat.");
+        setStatus(
+          "Bereit. Erstelle deinen ersten Cloud-Chat."
+        );
       }
     })
     .catch(error => {
-      setStatus("Cloud-Verbindung fehlgeschlagen: " + error.message);
+      setStatus(
+        "Cloud-Verbindung fehlgeschlagen: " +
+        error.message
+      );
     });
-  
-// JARVIS – Feste Chatansicht und Wisch-Navigation
 
-const chatLayoutStyle = node("style");
-
-chatLayoutStyle.textContent = `
-  body.jarvis-chat-active {
-    overflow: hidden !important;
-    overscroll-behavior: none;
-  }
-
-  body.jarvis-chat-active #chat {
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  #jarvis-cloud-manager {
-    min-height: 0;
-    overflow: hidden;
-    grid-template-columns: 230px minmax(0, 1fr);
-    transition: grid-template-columns 0.22s ease;
-  }
-
-  #jarvis-cloud-manager .jcm-panel {
-    min-height: 0;
-  }
-
-  #jarvis-cloud-manager .jcm-panel:first-child {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  #jarvis-cloud-manager .jcm-list {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #jarvis-cloud-manager .jcm-main {
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  #jarvis-cloud-manager .jcm-messages {
-    flex: 1;
-    min-height: 0;
-    height: auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #jarvis-cloud-manager textarea {
-    flex-shrink: 0;
-  }
-
-  #jarvis-cloud-manager .jcm-main > .line {
-    flex-shrink: 0;
-  }
-
-  #jarvis-cloud-manager.jcm-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  #jarvis-cloud-manager.jcm-collapsed
-  > .jcm-panel:first-child {
-    display: none;
-  }
-
-  @media (max-width: 700px) {
-    #jarvis-cloud-manager {
-      grid-template-columns: minmax(130px, 36%) minmax(0, 1fr);
-    }
-
-    #jarvis-cloud-manager.jcm-collapsed {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-`;
-
-document.head.append(chatLayoutStyle);
-
-// Verfügbare Bildschirmhöhe für den Chat berechnen.
-function resizeJarvisChat() {
-  if (page.hidden) return;
-
-  const bottomNav = document.getElementById("bottomnav");
-
-  const bottomHeight =
-    bottomNav &&
-    getComputedStyle(bottomNav).display !== "none"
-      ? bottomNav.getBoundingClientRect().height
-      : 0;
-
-  const top = root.getBoundingClientRect().top;
-  const available =
-    window.innerHeight - top - bottomHeight - 10;
-
-  root.style.height =
-    Math.max(180, available) + "px";
-
-  root.style.maxHeight =
-    Math.max(180, available) + "px";
-}
-
-function syncJarvisChatLayout() {
-  const visible = !page.hidden;
-
-  document.body.classList.toggle(
-    "jarvis-chat-active",
-    visible
-  );
-
-  if (visible) {
-    resizeJarvisChat();
-  } else {
-    root.style.height = "";
-    root.style.maxHeight = "";
-  }
-}
-
-// Bei Seitenwechsel und Bildschirmgrößenänderung.
-const chatVisibilityObserver = new MutationObserver(
-  syncJarvisChatLayout
-);
-
-chatVisibilityObserver.observe(page, {
-  attributes: true,
-  attributeFilter: ["hidden"]
-});
-
-window.addEventListener(
-  "resize",
-  syncJarvisChatLayout
-);
-
-syncJarvisChatLayout();
-
-// JARVIS – Einheitliche, kompakte Chat-Eingabe
-
-// Vorhandene Buttons und Eingabe neu anordnen.
-// Alle bestehenden Klickfunktionen bleiben erhalten.
-composer.replaceChildren(
-  plusButton,
-  microphone,
-  input,
-  reload,
-  send
-);
-
-// Einfarbiges Mikrofon statt Platzhalter
-microphone.innerHTML = `
-  <svg width="20" height="20" viewBox="0 0 24 24"
-       fill="none" stroke="currentColor"
-       stroke-width="1.8" stroke-linecap="round"
-       stroke-linejoin="round" aria-hidden="true">
-    <rect x="9" y="2" width="6" height="12" rx="3"/>
-    <path d="M5 10a7 7 0 0 0 14 0"/>
-    <path d="M12 17v5"/>
-    <path d="M8 22h8"/>
-  </svg>
-`;
-
-// Kompaktes Aktualisieren-Symbol
-reload.innerHTML = `
-  <svg width="18" height="18" viewBox="0 0 24 24"
-       fill="none" stroke="currentColor"
-       stroke-width="1.8" stroke-linecap="round"
-       stroke-linejoin="round" aria-hidden="true">
-    <path d="M20 11a8 8 0 1 1-2.4-5.7"/>
-    <path d="M20 4v6h-6"/>
-  </svg>
-`;
-reload.className = "jcm-tool-button";
-reload.title = "Chat aktualisieren";
-reload.setAttribute("aria-label", "Chat aktualisieren");
-
-// Mittig ausgerichteter SVG-Sendepfeil
-send.innerHTML = `
-  <svg width="20" height="20" viewBox="0 0 24 24"
-       fill="none" stroke="currentColor"
-       stroke-width="2.2" stroke-linecap="round"
-       stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 19V5"/>
-    <path d="m5 12 7-7 7 7"/>
-  </svg>
-`;
-
-// Die endgültigen CSS-Regeln werden zuletzt geladen.
-const finalComposerStyle = document.createElement("style");
-
-finalComposerStyle.textContent = `
-  #jarvis-cloud-manager .jcm-composer {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    gap: 7px !important;
-    width: 100%;
-    min-width: 0;
-    padding: 8px 10px !important;
-    border-radius: 18px;
-    flex: 0 0 auto !important;
-  }
-
-  #jarvis-cloud-manager textarea.jcm-composer-input {
-    flex: 1 1 0 !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    min-height: 24px !important;
-    max-height: 144px !important;
-    margin: 0 !important;
-    padding: 5px 10px !important;
-    border: 0 !important;
-    border-radius: 12px !important;
-    background: #2d2e32 !important;
-    box-shadow: none !important;
-    resize: none !important;
-    line-height: 24px !important;
-    overflow-y: hidden;
-    font-size: 14px;
-  }
-
-  #jarvis-cloud-manager .jcm-composer
-  > .jcm-tool-button,
-  #jarvis-cloud-manager .jcm-composer
-  > .jcm-send-button {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    flex: 0 0 32px !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 1 !important;
-    border-radius: 50%;
-  }
-
-  #jarvis-cloud-manager .jcm-composer
-  > .jcm-send-button {
-    background: #eeeeef !important;
-    color: #17181a !important;
-  }
-  #jarvis-cloud-manager .jcm-composer
-> .jcm-tool-button {
-  color: #d0d1d5 !important;
-  background: transparent !important;
-}
-`;
-
-document.head.append(finalComposerStyle);
-
-// Das Textfeld beim Start und beim Schreiben anpassen.
-function fitFinalComposer() {
-  input.style.height = "24px";
-
-  const height = Math.min(
-    Math.max(input.scrollHeight, 24),
-    144
-  );
-
-  input.style.height = height + "px";
-  input.style.overflowY =
-    input.scrollHeight > 144 ? "auto" : "hidden";
-}
-
-input.addEventListener("input", fitFinalComposer);
-fitFinalComposer();
-
+  syncJarvisChatLayout();
 })();
