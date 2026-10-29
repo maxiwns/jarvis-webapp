@@ -359,11 +359,118 @@ function dateDE(date){if(!date)return'';let d=new Date(date+'T12:00:00');return 
 function formatEvent(t){try{return new Date(t).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}catch{return''}}
 function renderTaskList(target,items){target.replaceChildren();if(!items.length){target.append(el('p','muted','Keine Aufgaben vorhanden.'));return}items.forEach(t=>{let row=el('div','item');let box=el('input');box.type='checkbox';box.checked=!!t.done;box.setAttribute('aria-label','Aufgabe abschließen');box.onchange=()=>{t.done=box.checked;persist();log(t.done?'Aufgabe abgeschlossen':'Aufgabe wieder geöffnet');paint()};let grow=el('div','grow');let title=el('div',t.done?'done':'',t.title);grow.append(title);let meta=el('small',null,(t.area||'Allgemein')+' · '+(t.priority==='high'?'Wichtig':t.priority==='low'?'Später':'Normal')+(t.due?' · Fällig '+dateDE(t.due):''));grow.append(meta);let del=el('button','trash','×');del.title='Aufgabe löschen';del.onclick=()=>{db.tasks=db.tasks.filter(x=>x.id!==t.id);persist();log('Aufgabe gelöscht');paint()};row.append(box,grow,del);target.append(row)})}
 function paint(){let open=db.tasks.filter(t=>!t.done);$('#count-tasks').textContent=open.length;$('#count-orders').textContent=db.orders.length;$('#count-notes').textContent=db.notes.length;$('#count-approvals').textContent=db.approvals.filter(a=>a.status==='open').length;let chosen=db.tasks.filter(t=>filter==='all'||(filter==='open'&&!t.done)||(filter==='done'&&t.done));renderTaskList($('#task-list'),chosen);renderTaskList($('#dash-task-list'),open.slice(0,5));renderBrief();renderApprovals();}
-function addTask(title,priority='normal',due='',area='Allgemein'){title=cleanText(title,160);if(!title)return false;db.tasks.unshift({id:newId(),title,area,priority,due,done:false});db.tasks=db.tasks.slice(0,200);persist();log('Aufgabe hinzugefügt');paint();return true}
-$('#task-form').onsubmit=e=>{e.preventDefault();if(addTask($('#task-title').value,$('#task-priority').value,$('#task-due').value,$('#task-area').value)){$('#task-title').value='';$('#task-due').value=''}};
+
+async function addTask(
+  title,
+  priority = "normal",
+  due = "",
+  area = "Allgemein"
+) {
+  title = cleanText(title, 160);
+
+  if (!title) return false;
+
+  try {
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title,
+        priority,
+        due,
+        area,
+        source: "manual"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Cloud-Speicherung fehlgeschlagen");
+    }
+
+    const data = await response.json();
+
+    if (!data.success || !data.task?.id) {
+      throw new Error("Ungültige Serverantwort");
+    }
+
+    // Neue Cloud-Aufgabe zusätzlich lokal anzeigen.
+    db.tasks.unshift({
+      ...data.task,
+      done: false,
+      cloud: true
+    });
+
+    db.tasks = db.tasks.slice(0, 200);
+
+    // Lokale Kopie als Zwischensicherung behalten.
+    persist();
+    log("Aufgabe in der Cloud gespeichert");
+    paint();
+
+    return true;
+
+  } catch (error) {
+    console.error("JARVIS task error:", error);
+    alert(
+      "Die Aufgabe konnte nicht in der Cloud " +
+      "gespeichert werden. Bitte erneut versuchen."
+    );
+
+    return false;
+  }
+}
+
+
+$('#task-form').onsubmit = async e => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const button = form.querySelector('[type="submit"]');
+
+  if (button.disabled) return;
+
+  button.disabled = true;
+
+  try {
+    const saved = await addTask(
+      $('#task-title').value,
+      $('#task-priority').value,
+      $('#task-due').value,
+      $('#task-area').value
+    );
+
+    if (saved) {
+      $('#task-title').value = '';
+      $('#task-due').value = '';
+    }
+  } finally {
+    button.disabled = false;
+  }
+};
+
 $$('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;paint()});
-$('#quick-add').onclick=()=>{$('#quick-hint').textContent=addTask($('#quick-input').value)?'Lokal als Aufgabe gespeichert.':'Bitte erst einen Auftrag eingeben.';$('#quick-input').value=''};
-$('#chat-to-task').onclick=()=>{$('#chat-hint').textContent=addTask($('#chat-input').value)?'Lokal gespeichert, nicht an KI gesendet.':'Bitte erst einen Text eingeben.';$('#chat-input').value=''};
+
+$('#quick-add').onclick = async () => {
+  const field = $('#quick-input');
+  const saved = await addTask(field.value);
+  $('#quick-hint').textContent = saved
+    ? 'Aufgabe in der Cloud gespeichert.'
+    : 'Aufgabe nicht gespeichert.';
+  if (saved) field.value = '';
+};
+
+$('#chat-to-task').onclick = async () => {
+  const field = $('#chat-input');
+  const saved = await addTask(field.value);
+  $('#chat-hint').textContent = saved
+    ? 'Aufgabe in der Cloud gespeichert.'
+    : 'Aufgabe nicht gespeichert.';
+  if (saved) field.value = '';
+};
+
 function renderNotes(){let root=$('#note-list');root.replaceChildren();let query=$('#note-search').value.toLocaleLowerCase('de');let items=db.notes.filter(n=>(n.title+' '+n.body+' '+(n.area||'')).toLocaleLowerCase('de').includes(query));if(!items.length){root.append(el('p','muted','Keine passenden Notizen.'));return}items.forEach(n=>{let wrap=el('div','item');let grow=el('div','grow');grow.append(el('strong',null,n.title),el('small',null,n.area||'Allgemein'));let pre=el('div','muted',n.body.length>220?n.body.slice(0,220)+'…':n.body);pre.style.whiteSpace='pre-wrap';grow.append(pre,el('small',null,formatEvent(n.updated)));let edit=el('button','btn quiet','Bearbeiten');edit.onclick=()=>{editing=n.id;$('#note-title').value=n.title;$('#note-text').value=n.body;$('#note-area').value=n.area||'Allgemein';$('#note-save').textContent='Änderungen speichern';$('#note-cancel').hidden=false;$('#note-title').focus()};let del=el('button','trash','×');del.title='Notiz löschen';del.onclick=()=>{db.notes=db.notes.filter(x=>x.id!==n.id);persist();log('Notiz gelöscht');if(editing===n.id)resetNote();paint();renderNotes()};wrap.append(grow,edit,del);root.append(wrap)})}
 function resetNote(){editing=null;$('#note-form').reset();$('#note-save').textContent='Notiz speichern';$('#note-cancel').hidden=true}
 $('#note-form').onsubmit=e=>{e.preventDefault();let title=cleanText($('#note-title').value,120),body=cleanText($('#note-text').value,10000);if(!title||!body)return;if(editing){let old=db.notes.find(n=>n.id===editing);if(old){old.title=title;old.body=body;old.area=$('#note-area').value;old.updated=new Date().toISOString();log('Notiz bearbeitet')}}else{db.notes.unshift({id:newId(),title,body,area:$('#note-area').value,updated:new Date().toISOString()});db.notes=db.notes.slice(0,200);log('Notiz erstellt')}resetNote();persist();paint();renderNotes()};$('#note-search').oninput=renderNotes;$('#note-cancel').onclick=resetNote;
