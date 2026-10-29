@@ -365,6 +365,10 @@ window.addEventListener("jarvis:tasks-updated", () => {
   refreshCloudTasks();
 });
 
+window.addEventListener("jarvis:tasks-updated", () => {
+  refreshCloudTasks();
+});
+
 async function updateTaskDone(task,done){
   if(task.cloud){
     try{
