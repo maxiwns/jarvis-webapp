@@ -156,6 +156,41 @@
 #jarvis-cloud-manager .jcm-send-button:disabled {
   opacity: 0.45;
 }
+#jarvis-cloud-manager .jcm-composer {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+#jarvis-cloud-manager textarea.jcm-composer-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 24px !important;
+  height: 24px;
+  max-height: 160px;
+  padding: 0;
+  border: none;
+  resize: none;
+  background: transparent;
+  line-height: 24px;
+}
+
+#jarvis-cloud-manager .jcm-tool-button,
+#jarvis-cloud-manager .jcm-send-button {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#jarvis-cloud-manager .jcm-send-button {
+  margin-left: 0;
+}
 
     }
   `;
@@ -210,7 +245,27 @@ plusButton.type = "button";
 plusButton.title = "Dateien und Bilder anhängen";
 plusButton.setAttribute("aria-label", "Anhänge öffnen");
 
-const microphone = node("button", "jcm-tool-button", "♩");
+const microphone = node("button", "jcm-tool-button");
+
+microphone.innerHTML = `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="9" y="2" width="6" height="12" rx="3"/>
+    <path d="M5 10a7 7 0 0 0 14 0"/>
+    <path d="M12 17v5"/>
+    <path d="M8 22h8"/>
+  </svg>
+`;
 microphone.type = "button";
 microphone.title = "Spracheingabe – später verfügbar";
 microphone.setAttribute("aria-label", "Spracheingabe");
@@ -233,10 +288,20 @@ plusButton.onclick = () => {
   );
 };
 
-composerTools.append(plusButton, microphone, send);
-composer.append(input, composerTools);
+reload.textContent = "↻";
+reload.className = "jcm-tool-button";
+reload.title = "Chat aktualisieren";
+reload.setAttribute("aria-label", "Chat aktualisieren");
 
-main.append(title, messages, composer, reload, status);
+composer.append(
+  plusButton,
+  microphone,
+  input,
+  reload,
+  send
+);
+
+main.append(title, messages, composer, status);
 
 // Textfeld wächst automatisch mit dem Inhalt.
 function resizeComposerInput() {
