@@ -1090,10 +1090,10 @@ finalComposerStyle.textContent = `
     min-height: 24px !important;
     max-height: 144px !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 5px 10px !important;
     border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
+    border-radius: 12px !important;
+    background: #2d2e32 !important;
     box-shadow: none !important;
     resize: none !important;
     line-height: 24px !important;
