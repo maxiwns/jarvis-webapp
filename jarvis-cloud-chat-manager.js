@@ -94,6 +94,69 @@
       #jarvis-cloud-manager .jcm-messages {
         height:330px;
       }
+      
+#jarvis-cloud-manager .jcm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+  background: #242529;
+  border: 1px solid #48494e;
+  border-radius: 17px;
+  padding: 10px 12px;
+}
+
+#jarvis-cloud-manager .jcm-composer-input {
+  min-height: 24px;
+  height: 24px;
+  max-height: 160px;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #f1f1f2;
+  padding: 0;
+  line-height: 24px;
+  box-shadow: none;
+}
+
+#jarvis-cloud-manager .jcm-composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+#jarvis-cloud-manager .jcm-tool-button {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #e5e5e8;
+  font-size: 26px;
+}
+
+#jarvis-cloud-manager .jcm-tool-button:disabled {
+  opacity: 0.35;
+}
+
+#jarvis-cloud-manager .jcm-send-button {
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: #eeeeef;
+  color: #17181a;
+  font-size: 23px;
+  font-weight: bold;
+}
+
+#jarvis-cloud-manager .jcm-send-button:disabled {
+  opacity: 0.45;
+}
+
     }
   `;
   document.head.append(style);
@@ -137,8 +200,56 @@
   const send = node("button", "btn primary", "Senden");
   const reload = node("button", "btn quiet", "Aktualisieren");
 
-  actions.append(send, reload);
-  main.append(title, messages, input, actions, status);
+  
+// Kompakte JARVIS-Eingabeleiste
+const composer = node("div", "jcm-composer");
+const composerTools = node("div", "jcm-composer-tools");
+
+const plusButton = node("button", "jcm-tool-button", "+");
+plusButton.type = "button";
+plusButton.title = "Dateien und Bilder anhängen";
+plusButton.setAttribute("aria-label", "Anhänge öffnen");
+
+const microphone = node("button", "jcm-tool-button", "♩");
+microphone.type = "button";
+microphone.title = "Spracheingabe – später verfügbar";
+microphone.setAttribute("aria-label", "Spracheingabe");
+microphone.disabled = true;
+
+input.rows = 1;
+input.placeholder = "Nachricht an JARVIS …";
+input.classList.add("jcm-composer-input");
+
+send.textContent = "↑";
+send.className = "jcm-send-button";
+send.setAttribute("aria-label", "Nachricht senden");
+send.title = "Nachricht senden";
+
+// Anhänge werden erst nach Backend-Anbindung unterstützt.
+plusButton.onclick = () => {
+  setStatus(
+    "Bilder und Dokumente folgen mit der Datei-Upload-Funktion. " +
+    "Aktuell unterstützt der Cloud-Chat nur Text."
+  );
+};
+
+composerTools.append(plusButton, microphone, send);
+composer.append(input, composerTools);
+
+main.append(title, messages, composer, reload, status);
+
+// Textfeld wächst automatisch mit dem Inhalt.
+function resizeComposerInput() {
+  input.style.height = "auto";
+  input.style.height =
+    Math.min(input.scrollHeight, 160) + "px";
+  input.style.overflowY =
+    input.scrollHeight > 160 ? "auto" : "hidden";
+}
+
+input.addEventListener("input", resizeComposerInput);
+resizeComposerInput();
+
   root.append(side, main);
   page.append(root);
 
