@@ -1124,6 +1124,11 @@ finalComposerStyle.textContent = `
     background: #eeeeef !important;
     color: #17181a !important;
   }
+  #jarvis-cloud-manager .jcm-composer
+> .jcm-tool-button {
+  color: #d0d1d5 !important;
+  background: transparent !important;
+}
 `;
 
 document.head.append(finalComposerStyle);
