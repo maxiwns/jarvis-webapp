@@ -1134,6 +1134,11 @@ if (task) {
           "Speicherung nicht bestätigt"
         );
       }
+      if (data.action === "create_task") {
+  window.dispatchEvent(
+    new CustomEvent("jarvis:tasks-updated")
+  );
+}
 
       if (shouldAutoRename) {
         try {
