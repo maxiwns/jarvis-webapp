@@ -203,9 +203,10 @@ const SIDEBAR_WIDTH_KEY = "jarvis_chat_sidebar_width";
 let sidebarWidth = 230;
 
 try {
-  const savedWidth = Number(
-    localStorage.getItem(SIDEBAR_WIDTH_KEY)
-  );
+  const storedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+const savedWidth = storedWidth === null
+  ? 230
+  : Number(storedWidth);
 
   if (Number.isFinite(savedWidth) &&
       savedWidth >= 0 &&
@@ -225,7 +226,13 @@ function applySidebarWidth(width) {
     ? 0
     : Math.max(140, Math.min(width, maxWidth));
 
-  side.hidden = sidebarWidth === 0;
+  side.hidden = false;
+side.style.visibility = sidebarWidth === 0
+  ? "hidden"
+  : "visible";
+side.style.pointerEvents = sidebarWidth === 0
+  ? "none"
+  : "auto";
 
   root.classList.remove("jcm-collapsed");
 
