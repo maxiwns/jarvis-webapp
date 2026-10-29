@@ -493,7 +493,7 @@ window.addEventListener("resize", () => {
     create.disabled = value;
     send.disabled = value || !activeId;
     reload.disabled = value;
-    input.disabled = value;
+    input.disabled = false;
   }
 
   function renderList() {
@@ -833,7 +833,6 @@ try {
     console.warn("Automatische Benennung fehlgeschlagen");
   }
 }
-      input.value = "";
       await loadChats();
 
       setBusy(false);
