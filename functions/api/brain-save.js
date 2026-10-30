@@ -88,6 +88,29 @@ async function findOrCreateCategory(
   return saved.id;
 }
 
+/*
+ * Lädt bestehende Kategorien aus D1
+ * einschließlich ihrer übergeordneten Kategorie.
+ */
+async function loadExistingCategories(db) {
+  const { results } = await db.prepare(
+    `SELECT
+       child.name AS category,
+       parent.name AS parent
+     FROM brain_categories AS child
+     LEFT JOIN brain_categories AS parent
+       ON child.parent_id = parent.id
+     ORDER BY child.name
+     LIMIT 100`
+  ).all();
+
+  return (results || []).map(item =>
+    item.parent
+      ? `${item.parent} / ${item.category}`
+      : item.category
+  );
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -192,7 +215,8 @@ export async function onRequestPost(context) {
         categoryId: duplicate.category_id
       });
     }
-
+    const existingCategories =
+      await loadExistingCategories(env.DB);
     // KI-Kategorisierung über geschütztes Backend.
     const aiResponse = await fetch(
       BACKEND + "/api/brain-categorize",
@@ -203,10 +227,13 @@ export async function onRequestPost(context) {
           Authorization:
             `Bearer ${env.JARVIS_BACKEND_API_KEY}`
         },
-        body: JSON.stringify({
-          title,
-          content: content.trim()
-        }),
+        
+body: JSON.stringify({
+  title,
+  content: content.trim(),
+  existingCategories
+}),
+
         signal: AbortSignal.timeout(20000)
       }
     );
