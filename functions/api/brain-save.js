@@ -505,6 +505,36 @@ if (relatedKnowledge.length > 0) {
       JSON.stringify(tags),
       "unverified"
     ).run();
+    
+/*
+ * Erkannte Wissensbeziehungen dauerhaft speichern.
+ * Ein Fehler verhindert nicht die Speicherung
+ * des eigentlichen Wissenseintrags.
+ */
+let savedLinks = 0;
+let linkSaveStatus = "not_attempted";
+
+try {
+  savedLinks = await saveKnowledgeLinks(
+    env.DB,
+    id,
+    semanticComparison,
+    relatedKnowledge
+  );
+
+  linkSaveStatus =
+    semanticComparison.success === true
+      ? "completed"
+      : "comparison_unavailable";
+
+} catch (error) {
+  console.error(
+    "JARVIS knowledge linking failed",
+    error?.name || "Error"
+  );
+
+  linkSaveStatus = "failed";
+}
 
     return reply({
       success: true,
@@ -520,8 +550,12 @@ if (relatedKnowledge.length > 0) {
       
 
 verificationStatus: "unverified",
+
 relatedKnowledgeCount: relatedKnowledge.length,
-semanticComparison
+semanticComparison,
+savedLinks,
+linkSaveStatus
+
 
 
     });
