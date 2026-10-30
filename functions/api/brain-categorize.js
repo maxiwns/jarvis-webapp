@@ -85,6 +85,48 @@ export async function onRequestPost(context) {
       { status: 400 }
     );
   }
+     
+if (!env.DB) {
+  return Response.json(
+    {
+      success: false,
+      error: "Second Brain database unavailable"
+    },
+    { status: 503 }
+  );
+}
+
+let existingCategories;
+
+try {
+  const { results } = await env.DB.prepare(
+    `SELECT
+       child.name AS category,
+       parent.name AS parent
+     FROM brain_categories AS child
+     LEFT JOIN brain_categories AS parent
+       ON child.parent_id = parent.id
+     ORDER BY child.name
+     LIMIT 100`
+  ).all();
+
+  existingCategories = (results || []).map(
+    item => item.parent
+      ? `${item.parent} / ${item.category}`
+      : item.category
+  );
+
+} catch (error) {
+  console.error("Could not load brain categories");
+
+  return Response.json(
+    {
+      success: false,
+      error: "Category lookup failed"
+    },
+    { status: 502 }
+  );
+}
 
   try {
     const backendResponse = await fetch(
@@ -96,10 +138,13 @@ export async function onRequestPost(context) {
           Authorization:
             `Bearer ${env.JARVIS_BACKEND_API_KEY}`
         },
-        body: JSON.stringify({
-          title: body.title || "Neuer Wissenseintrag",
-          content: body.content.trim()
-        }),
+        
+body: JSON.stringify({
+  title: body.title || "",
+  content: body.content.trim(),
+  existingCategories
+}),
+
         signal: AbortSignal.timeout(20000)
       }
     );
