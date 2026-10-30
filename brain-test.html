@@ -109,6 +109,24 @@
 Noch keine Suche ausgeführt.
 </pre>
 
+<h2>JARVIS – Second Brain fragen</h2>
+
+<input
+  id="brainQuestion"
+  type="text"
+  placeholder="Was möchtest du wissen?"
+  value="Was wissen wir über Support?"
+>
+
+<button id="askBrainButton" type="button">
+  JARVIS fragen
+</button>
+
+<h3>Antwort von JARVIS</h3>
+<pre id="brainAnswer">
+Noch keine Frage gestellt.
+</pre>
+
   <script>
     const button =
       document.getElementById("testButton");
@@ -282,6 +300,66 @@ searchButton.addEventListener("click", async () => {
       "Suchfehler: " + error.message;
   } finally {
     searchButton.disabled = false;
+  }
+});
+
+/*
+ * JARVIS – Fragen an das Second Brain
+ */
+
+const askBrainButton =
+  document.getElementById("askBrainButton");
+
+const brainAnswer =
+  document.getElementById("brainAnswer");
+
+askBrainButton.addEventListener("click", async () => {
+  askBrainButton.disabled = true;
+
+  brainAnswer.textContent =
+    "JARVIS durchsucht sein Wissen und erstellt eine Antwort ...";
+
+  try {
+    const response = await fetch("/api/brain-ask", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        question: document
+          .getElementById("brainQuestion")
+          .value
+      })
+    });
+
+    const raw = await response.text();
+
+    let result;
+
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        "HTTP " + response.status +
+        ": Ungültige Serverantwort"
+      );
+    }
+
+    brainAnswer.textContent = JSON.stringify(
+      {
+        httpStatus: response.status,
+        ...result
+      },
+      null,
+      2
+    );
+
+  } catch (error) {
+    brainAnswer.textContent =
+      "Fehler: " + error.message;
+  } finally {
+    askBrainButton.disabled = false;
   }
 });
 
