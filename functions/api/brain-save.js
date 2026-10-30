@@ -153,6 +153,74 @@ async function loadRelatedKnowledge(
   }));
 }
 
+/*
+ * JARVIS – Wissensverknüpfungen speichern
+ *
+ * Speichert semantische Beziehungen in D1.
+ * Keine Löschungen oder Zusammenführungen.
+ */
+async function saveKnowledgeLinks(
+  db,
+  newEntryId,
+  comparison,
+  candidates
+) {
+  if (
+    comparison?.success !== true ||
+    !Array.isArray(comparison.matches)
+  ) {
+    return 0;
+  }
+
+  const allowedIds = new Set(
+    candidates.map(item => item.id)
+  );
+
+  const allowedRelations = new Set([
+    "related",
+    "overlaps",
+    "duplicate_candidate"
+  ]);
+
+  let saved = 0;
+
+  for (const match of comparison.matches) {
+    if (
+      !match ||
+      !allowedIds.has(match.id) ||
+      match.id === newEntryId ||
+      !allowedRelations.has(match.relation) ||
+      typeof match.confidence !== "number" ||
+      !Number.isFinite(match.confidence) ||
+      match.confidence < 0.75 ||
+      match.confidence > 1
+    ) {
+      continue;
+    }
+
+    const result = await db.prepare(
+      `INSERT OR IGNORE INTO brain_links (
+         id,
+         from_entry_id,
+         to_entry_id,
+         relation_type
+       )
+       VALUES (?, ?, ?, ?)`
+    ).bind(
+      crypto.randomUUID(),
+      newEntryId,
+      match.id,
+      match.relation
+    ).run();
+
+    if (result.meta?.changes === 1) {
+      saved++;
+    }
+  }
+
+  return saved;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
