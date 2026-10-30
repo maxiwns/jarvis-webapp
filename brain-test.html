@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+
+  <title>JARVIS – Second Brain Test</title>
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0b1020;
+      color: #f3f6ff;
+      max-width: 760px;
+      margin: auto;
+      padding: 24px;
+    }
+
+    h1 {
+      color: #75bfff;
+    }
+
+    textarea, input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin: 8px 0 18px;
+      border: 1px solid #35425e;
+      border-radius: 8px;
+      background: #151e33;
+      color: white;
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 180px;
+    }
+
+    button {
+      background: #2387e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+    }
+
+    pre {
+      background: #151e33;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>JARVIS Second Brain</h1>
+
+  <p>
+    Test der automatischen KI-Kategorisierung.
+    Noch keine Datenbankspeicherung.
+  </p>
+
+  <label for="title">Titel</label>
+  <input
+    id="title"
+    value="CRM-Systeme für Unternehmen"
+  >
+
+  <label for="content">Wissensinhalt</label>
+  <textarea id="content">CRM-Systeme helfen Unternehmen, Kundenkontakte, Vertriebsprozesse und Verkaufschancen zentral zu verwalten. Durch Automatisierung lassen sich wiederkehrende Aufgaben reduzieren und Kundenbeziehungen besser organisieren.</textarea>
+
+  <button id="testButton">
+    Automatisch kategorisieren
+  </button>
+
+  <h2>Ergebnis</h2>
+  <pre id="result">Noch kein Test ausgeführt.</pre>
+
+  <script>
+    const button =
+      document.getElementById("testButton");
+
+    const output =
+      document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      output.textContent =
+        "JARVIS analysiert den Inhalt ...";
+
+      try {
+        const response = await fetch(
+          "/api/brain-categorize",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              title:
+                document.getElementById("title").value,
+              content:
+                document.getElementById("content").value
+            })
+          }
+        );
+
+        const text = await response.text();
+
+        let result;
+
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(
+            "HTTP " + response.status +
+            ": Keine gültige JSON-Antwort"
+          );
+        }
+
+        output.textContent = JSON.stringify(
+          {
+            httpStatus: response.status,
+            ...result
+          },
+          null,
+          2
+        );
+
+      } catch (error) {
+        output.textContent =
+          "Fehler: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
