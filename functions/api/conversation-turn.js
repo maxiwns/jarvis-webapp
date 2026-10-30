@@ -28,6 +28,112 @@ async function callAI(env, path, body) {
   return response.json();
 }
 
+/*
+ * JARVIS – Second Brain im normalen Chat
+ *
+ * Erkennt ausdrückliche Fragen nach gespeichertem
+ * Wissen, sucht in D1 und nutzt die Answer Engine.
+ *
+ * Gibt null zurück, wenn keine Wissensfrage vorliegt.
+ */
+
+async function maybeAnswerFromBrain(env, message) {
+  const isBrainQuestion =
+    /second[\s-]*brain|was wissen wir|was hatten wir|was haben wir (?:über|zu|gespeichert|festgehalten)|was hast du gespeichert|in (?:meinem|deinem|unserem) wissen/i
+      .test(message);
+
+  if (!isBrainQuestion) {
+    return null;
+  }
+
+  const stopwords = new Set([
+    "was", "wissen", "haben", "hatten",
+    "gespeichert", "festgehalten",
+    "unserem", "unseren", "unserer",
+    "meinem", "meinen", "deinem",
+    "deinen", "second", "brain",
+    "über", "dazu", "zum", "eine",
+    "einen", "einem", "wurde",
+    "wurden", "bereits", "schon",
+    "bitte", "kannst", "können",
+    "findest", "finden", "thema",
+    "informationen", "welche",
+    "erinnerst", "dich"
+  ]);
+
+  const words = [
+    ...new Set(
+      message.toLowerCase()
+        .match(/[\p{L}\p{N}]{4,}/gu) || []
+    )
+  ]
+    .filter(word => !stopwords.has(word))
+    .slice(0, 6);
+
+  if (words.length === 0) {
+    return "Zu welchem Thema soll ich mein Second Brain durchsuchen?";
+  }
+
+  const patterns = words.map(word => {
+    const escaped = word
+      .replace(/\\/g, "\\\\")
+      .replace(/%/g, "\\%")
+      .replace(/_/g, "\\_");
+
+    return "%" + escaped + "%";
+  });
+
+  const clauses = patterns.map(() => `
+    (
+      title LIKE ? ESCAPE '\\'
+      OR summary LIKE ? ESCAPE '\\'
+      OR content LIKE ? ESCAPE '\\'
+      OR tags LIKE ? ESCAPE '\\'
+    )
+  `);
+
+  const params = patterns.flatMap(pattern => [
+    pattern, pattern, pattern, pattern
+  ]);
+
+  const result = await env.DB.prepare(
+    `SELECT
+       id,
+       title,
+       summary,
+       verification_status
+     FROM brain_entries
+     WHERE ${clauses.join(" OR ")}
+     ORDER BY created_at DESC
+     LIMIT 15`
+  ).bind(...params).all();
+
+  const entries = result.results || [];
+
+  if (entries.length === 0) {
+    return "Dazu habe ich noch keine passenden Informationen in meinem Second Brain gespeichert.";
+  }
+
+  const answerResult = await callAI(
+    env,
+    "/api/brain-answer",
+    {
+      question: message,
+      entries
+    }
+  );
+
+  if (
+    answerResult.success !== true ||
+    typeof answerResult.answer !== "string" ||
+    !answerResult.answer.trim()
+  ) {
+    throw new Error("Invalid Second Brain answer");
+  }
+
+  return answerResult.answer.trim();
+}
+
 function validDate(value) {
   if (value === "") return true;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -172,13 +278,25 @@ export async function onRequestPost({ request, env }) {
     }
     previousMessages.reverse();
 
-    try {
-      const data = await callAI(env, "/api/conversation", {
+    
+try {
+  const brainReply = await maybeAnswerFromBrain(
+    env,
+    currentMessage
+  );
+
+  const data = brainReply !== null
+    ? { reply: brainReply }
+    : await callAI(env, "/api/conversation", {
         messages: [
           ...previousMessages,
-          { role: "user", content: currentMessage }
+          {
+            role: "user",
+            content: currentMessage
+          }
         ]
       });
+
       if (typeof data.reply !== "string" ||
           !data.reply.trim() || data.reply.length > 8000) {
         return reply({ error: "Invalid AI response" }, 502);
