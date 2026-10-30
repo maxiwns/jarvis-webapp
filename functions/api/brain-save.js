@@ -324,6 +324,79 @@ body: JSON.stringify({
  */
 const relatedKnowledge =
   await loadRelatedKnowledge(env.DB, categoryId);
+    
+/*
+ * JARVIS – Semantischer Wissensvergleich
+ *
+ * Vergleicht neue Erkenntnisse mit vorhandenen
+ * Einträgen derselben Kategorie.
+ * Löscht oder verändert keine bestehenden Einträge.
+ */
+
+let semanticComparison = {
+  success: false,
+  compared: 0,
+  matches: [],
+  status: "not_checked"
+};
+
+if (relatedKnowledge.length > 0) {
+  try {
+    const compareResponse = await fetch(
+      BACKEND + "/api/brain-compare",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:
+            `Bearer ${env.JARVIS_BACKEND_API_KEY}`
+        },
+        body: JSON.stringify({
+          title: ai.title,
+          summary: ai.summary,
+          candidates: relatedKnowledge
+        }),
+        signal: AbortSignal.timeout(20000)
+      }
+    );
+
+    if (!compareResponse.ok) {
+      throw new Error("Comparison request failed");
+    }
+
+    const comparison = await compareResponse.json();
+
+    if (
+      comparison.success !== true ||
+      !Array.isArray(comparison.matches)
+    ) {
+      throw new Error("Invalid comparison result");
+    }
+
+    semanticComparison = {
+      success: true,
+      compared: comparison.compared,
+      matches: comparison.matches,
+      status: "completed"
+    };
+
+  } catch (error) {
+    console.error(
+      "JARVIS semantic comparison failed",
+      error?.name || "Error"
+    );
+
+    semanticComparison.status = "failed";
+  }
+} else {
+  semanticComparison = {
+    success: true,
+    compared: 0,
+    matches: [],
+    status: "no_candidates"
+  };
+}
+
 
 
     const tags = Array.isArray(ai.tags)
@@ -377,8 +450,11 @@ const relatedKnowledge =
       summary: ai.summary,
       tags,
       
+
 verificationStatus: "unverified",
-relatedKnowledgeCount: relatedKnowledge.length
+relatedKnowledgeCount: relatedKnowledge.length,
+semanticComparison
+
 
     });
 
