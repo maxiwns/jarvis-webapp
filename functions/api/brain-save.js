@@ -317,6 +317,14 @@ body: JSON.stringify({
           parentId
         )
       : parentId;
+    
+/*
+ * Vorhandenes Wissen derselben Kategorie laden.
+ * Noch keine automatische Zusammenführung.
+ */
+const relatedKnowledge =
+  await loadRelatedKnowledge(env.DB, categoryId);
+
 
     const tags = Array.isArray(ai.tags)
       ? ai.tags
@@ -368,7 +376,10 @@ body: JSON.stringify({
       categoryId,
       summary: ai.summary,
       tags,
-      verificationStatus: "unverified"
+      
+verificationStatus: "unverified",
+relatedKnowledgeCount: relatedKnowledge.length
+
     });
 
   } catch (error) {
