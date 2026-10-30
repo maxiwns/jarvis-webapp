@@ -38,13 +38,23 @@ async function callAI(env, path, body) {
  */
 
 async function maybeAnswerFromBrain(env, message) {
-  const isBrainQuestion =
-    /second[\s-]*brain|was wissen wir|was hatten wir|was haben wir (?:über|zu|gespeichert|festgehalten)|was hast du gespeichert|in (?:meinem|deinem|unserem) wissen/i
-      .test(message);
+  
+/*
+ * Bei normalen Chatfragen prüfen wir,
+ * ob im Second Brain passendes Wissen liegt.
+ *
+ * Die vorgeschaltete Intent-Erkennung verhindert,
+ * dass Aufgaben und Aufträge hier landen.
+ */
+const isQuestion =
+  /[?]$/.test(message.trim()) ||
+  /^(was|wie|welche|welcher|welches|warum|wozu|erkläre|erzähl|erzähle|zeige|gib mir|kannst du mir)/i
+    .test(message.trim());
 
-  if (!isBrainQuestion) {
-    return null;
-  }
+if (!isQuestion) {
+  return null;
+}
+
 
   const stopwords = new Set([
     "was", "wissen", "haben", "hatten",
@@ -58,7 +68,11 @@ async function maybeAnswerFromBrain(env, message) {
     "bitte", "kannst", "können",
     "findest", "finden", "thema",
     "informationen", "welche",
-    "erinnerst", "dich"
+    "erinnerst", "dich","alles", "sagen", "erzählen",
+    "erzähle", "kann", "kannst",
+    "geben", "zeige", "welcher",
+    "welches", "darüber", "etwas",
+    "bitte", "mir", "uns",
   ]);
 
   const words = [
