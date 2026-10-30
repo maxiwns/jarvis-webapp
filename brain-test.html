@@ -82,6 +82,11 @@
   <button id="testButton">
     Automatisch kategorisieren
   </button>
+  
+  <button id="saveButton" type="button">
+    Automatisch im Second Brain speichern
+  </button>
+
 
   <h2>Ergebnis</h2>
   <pre id="result">Noch kein Test ausgeführt.</pre>
@@ -145,6 +150,61 @@
         button.disabled = false;
       }
     });
-  </script>
+
+    
+const saveButton =
+  document.getElementById("saveButton");
+
+saveButton.addEventListener("click", async () => {
+  saveButton.disabled = true;
+  button.disabled = true;
+
+  output.textContent =
+    "JARVIS kategorisiert und speichert das Wissen ...";
+
+  try {
+    const response = await fetch("/api/brain-save", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: document.getElementById("title").value,
+        content: document.getElementById("content").value
+      })
+    });
+
+    const raw = await response.text();
+    let result;
+
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        "HTTP " + response.status +
+        ": Ungültige Serverantwort"
+      );
+    }
+
+    output.textContent = JSON.stringify(
+      {
+        httpStatus: response.status,
+        ...result
+      },
+      null,
+      2
+    );
+
+  } catch (error) {
+    output.textContent =
+      "Speicherfehler: " + error.message;
+  } finally {
+    saveButton.disabled = false;
+    button.disabled = false;
+  }
+});
+
+    </script>
 </body>
 </html>
