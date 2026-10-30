@@ -90,6 +90,24 @@
 
   <h2>Ergebnis</h2>
   <pre id="result">Noch kein Test ausgeführt.</pre>
+  
+<h2>Second Brain durchsuchen</h2>
+
+<input
+  id="searchQuery"
+  type="text"
+  placeholder="Was soll JARVIS finden?"
+  value="Support"
+>
+
+<button id="searchButton" type="button">
+  Wissen suchen
+</button>
+
+<h3>Suchergebnisse</h3>
+<pre id="searchResult">
+Noch keine Suche ausgeführt.
+</pre>
 
   <script>
     const button =
@@ -202,6 +220,68 @@ saveButton.addEventListener("click", async () => {
   } finally {
     saveButton.disabled = false;
     button.disabled = false;
+  }
+});
+
+/*
+ * JARVIS – Second Brain Suche
+ */
+const searchButton =
+  document.getElementById("searchButton");
+
+const searchResult =
+  document.getElementById("searchResult");
+
+searchButton.addEventListener("click", async () => {
+  searchButton.disabled = true;
+
+  searchResult.textContent =
+    "JARVIS durchsucht sein Second Brain ...";
+
+  try {
+    const response = await fetch(
+      "/api/brain-search",
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          query: document
+            .getElementById("searchQuery")
+            .value
+        })
+      }
+    );
+
+    const raw = await response.text();
+
+    let data;
+
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        "HTTP " + response.status +
+        ": Ungültige Serverantwort"
+      );
+    }
+
+    searchResult.textContent = JSON.stringify(
+      {
+        httpStatus: response.status,
+        ...data
+      },
+      null,
+      2
+    );
+
+  } catch (error) {
+    searchResult.textContent =
+      "Suchfehler: " + error.message;
+  } finally {
+    searchButton.disabled = false;
   }
 });
 
