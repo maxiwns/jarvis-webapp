@@ -110,6 +110,48 @@ async function loadExistingCategories(db) {
       : item.category
   );
 }
+  
+/*
+ * Lädt vorhandene Wissenseinträge für
+ * den späteren semantischen Vergleich.
+ *
+ * Noch keine KI-Entscheidung und
+ * keine automatische Zusammenführung.
+ */
+async function loadRelatedKnowledge(
+  db,
+  categoryId
+) {
+  if (typeof categoryId !== "string") {
+    return [];
+  }
+
+  const { results } = await db.prepare(
+    `SELECT
+       id,
+       title,
+       summary,
+       tags
+     FROM brain_entries
+     WHERE category_id = ?
+     ORDER BY created_at DESC
+     LIMIT 30`
+  ).bind(categoryId).all();
+
+  return (results || []).map(item => ({
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    tags: (() => {
+      try {
+        const parsed = JSON.parse(item.tags);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })()
+  }));
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
