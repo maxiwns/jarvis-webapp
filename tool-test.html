@@ -56,6 +56,60 @@
   <textarea id="instruction">Recherchiere aktuelle CRM-Programme und erstelle einen Vergleich.</textarea>
 
   <button id="run">Werkzeuge planen</button>
+  
+<hr>
+<h2>Echte Werkzeugausführung</h2>
+
+<button id="testWeb">Webseite lesen</button>
+<button id="testReport">Bericht erstellen</button>
+
+<pre id="executionResult">Noch kein Werkzeug ausgeführt.</pre>
+
+<script>
+  async function testJarvisTool(tool, args) {
+    const output =
+      document.getElementById("executionResult");
+
+    output.textContent =
+      "JARVIS führt " + tool + " aus …";
+
+    try {
+      const response = await fetch(
+        "/api/tool-execute",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ tool, args })
+        }
+      );
+
+      const data = await response.json();
+
+      output.textContent =
+        JSON.stringify(data, null, 2);
+
+    } catch (error) {
+      output.textContent =
+        "Fehler: " + error.message;
+    }
+  }
+
+  document.getElementById("testWeb").onclick = () =>
+    testJarvisTool("web_read", {
+      url: "https://developers.cloudflare.com/"
+    });
+
+  document.getElementById("testReport").onclick = () =>
+    testJarvisTool("reports", {
+      instruction:
+        "Erstelle einen kurzen Bericht über die " +
+        "Vorteile von Geschäftsprozessautomatisierung."
+    });
+</script>
+
 
   <h2>Ergebnis</h2>
   <pre id="result">Noch kein Test gestartet.</pre>
