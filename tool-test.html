@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>JARVIS – Werkzeug-Test</title>
+  <style>
+    body {
+      background: #0c0d0f;
+      color: #f2f2f2;
+      font-family: system-ui, sans-serif;
+      padding: 24px;
+      max-width: 700px;
+      margin: auto;
+    }
+
+    textarea {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 110px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #555;
+      background: #1c1d20;
+      color: white;
+      font: inherit;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 10px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    pre {
+      padding: 18px;
+      border-radius: 12px;
+      background: #1c1d20;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <h1>JARVIS – Werkzeug-Test</h1>
+  <p>
+    Gib einen Auftrag ein. JARVIS soll entscheiden,
+    welche Werkzeuge benötigt werden.
+  </p>
+
+  <textarea id="instruction">Recherchiere aktuelle CRM-Programme und erstelle einen Vergleich.</textarea>
+
+  <button id="run">Werkzeuge planen</button>
+
+  <h2>Ergebnis</h2>
+  <pre id="result">Noch kein Test gestartet.</pre>
+
+  <script>
+    const button = document.getElementById("run");
+    const result = document.getElementById("result");
+
+    button.addEventListener("click", async () => {
+      const instruction =
+        document.getElementById("instruction").value.trim();
+
+      if (instruction.length < 5) {
+        result.textContent = "Bitte einen Auftrag eingeben.";
+        return;
+      }
+
+      button.disabled = true;
+      result.textContent = "JARVIS plant …";
+
+      try {
+        const response = await fetch("/api/tool-plan", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ instruction })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.success !== true) {
+          throw new Error(
+            data.error || "HTTP " + response.status
+          );
+        }
+
+        result.textContent =
+          JSON.stringify(data.plan, null, 2);
+
+      } catch (error) {
+        result.textContent =
+          "Fehler: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
