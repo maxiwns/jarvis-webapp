@@ -931,14 +931,43 @@ refreshCloudTasks();
     sendButton.textContent = "JARVIS denkt ...";
     output.textContent = "Anfrage wird verarbeitet ...";
 
+    
     try {
-      const response = await fetch("/api/chat", {
+      // Gesprächs-ID für die aktuelle Sitzung wiederverwenden.
+      let chatId = sessionStorage.getItem("jarvis_active_chat_id");
+
+      if (!chatId) {
+        const createResponse = await fetch("/api/chats", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title: message.trim().slice(0, 80)
+          })
+        });
+
+        const createData = await createResponse.json();
+
+        if (!createResponse.ok || !createData.chat?.id) {
+          throw new Error(
+            createData.error || "Chat konnte nicht erstellt werden"
+          );
+        }
+
+        chatId = createData.chat.id;
+        sessionStorage.setItem("jarvis_active_chat_id", chatId);
+      }
+
+      // Nachricht an die zentrale JARVIS-Chatlogik senden.
+      const response = await fetch("/api/conversation-turn", {
         method: "POST",
         credentials: "same-origin",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message, model })
+        body: JSON.stringify({ chatId, message, model })
       });
 
       const data = await response.json();
