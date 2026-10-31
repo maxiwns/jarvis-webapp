@@ -499,16 +499,7 @@
 
     // Wichtig: Alle Beiträge zeigt nur Hauptordner.
     // Beiträge werden niemals ungefragt gesammelt angezeigt.
-    const folders = childFolders(currentFolder);
-
-    for (const folder of folders) {
-      items.append(createButton(
-        "📁 " + folder.name +
-        "  (" + descendantCount(folder.id) + ")",
-        "jbl-item-folder",
-        () => openFolder(folder.id)
-      ));
-    }
+    
 
     // Einträge erst im tatsächlich geöffneten Ordner.
     if (currentFolder !== null) {
