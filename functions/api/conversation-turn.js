@@ -251,6 +251,7 @@ export async function onRequestPost({ request, env }) {
   let answer;
   let taskId = null;
   let jobId = null;
+  let answerSource = "normal_chat"
 
   if (intent.action === "create_task") {
     taskId = crypto.randomUUID();
@@ -298,6 +299,9 @@ try {
     env,
     currentMessage
   );
+  if (brainReply !== null) {
+  answerSource = "second_brain";
+}
 
   const data = brainReply !== null
     ? { reply: brainReply }
@@ -365,6 +369,7 @@ try {
   return reply({
     status: "success",
     saved: true,
+    answerSource,
     model: "llama-3.1",
     action: intent.action,
     taskId,
