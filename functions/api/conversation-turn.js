@@ -37,72 +37,105 @@ async function callAI(env, path, body) {
  * Gibt null zurück, wenn keine Wissensfrage vorliegt.
  */
 
-async function maybeAnswerFromBrain(env, message) {
-  
-/*
- * Bei normalen Chatfragen prüfen wir,
- * ob im Second Brain passendes Wissen liegt.
- *
- * Die vorgeschaltete Intent-Erkennung verhindert,
- * dass Aufgaben und Aufträge hier landen.
- */
-const isQuestion =
-  /[?]$/.test(message.trim()) ||
-  /^(was|wie|welche|welcher|welches|warum|wozu|erkläre|erzähl|erzähle|zeige|gib mir|kannst du mir)/i
-    .test(message.trim());
 
-if (!isQuestion) {
-  return null;
-}
+async function maybeAnswerFromBrain(env, message, previousMessages = []) {
+  const question = message.trim();
 
+  // Erkennt Rückfragen nach Quellen der vorherigen Antwort.
+  const wantsSources =
+    /(?:woher|quelle|quellen|beleg|belege|nachweis|nachweise|ursprung|herkunft|referenz|referenzen|link|links|wo steht das)/i
+      .test(question);
 
-  const stopwords = new Set([
-    "was", "wissen", "haben", "hatten",
-    "gespeichert", "festgehalten",
-    "unserem", "unseren", "unserer",
-    "meinem", "meinen", "deinem",
-    "deinen", "second", "brain",
-    "über", "dazu", "zum", "eine",
-    "einen", "einem", "wurde",
-    "wurden", "bereits", "schon",
-    "bitte", "kannst", "können",
-    "findest", "finden", "thema",
-    "informationen", "welche",
-    "erinnerst", "dich","alles", "sagen", "erzählen",
-    "erzähle", "kann", "kannst",
-    "geben", "zeige", "welcher",
-    "welches", "darüber", "etwas",
-    "bitte", "mir", "uns",
-  ]);
+  const explicitlyBrain =
+    /second[\s-]*brain|gespeichertes wissen|wissensdatenbank|meine notizen/i
+      .test(question);
 
-  const words = [
-    ...new Set(
-      message.toLowerCase()
-        .match(/[\p{L}\p{N}]{4,}/gu) || []
-    )
-  ]
-    .filter(word => !stopwords.has(word))
-    .slice(0, 6);
+  const isQuestion =
+    /[?]$/.test(question) ||
+    /^(was|wie|welche|welcher|welches|warum|wozu|erkläre|erzähl|erzähle|zeige|gib mir|kannst du mir)/i
+      .test(question);
 
-  if (words.length === 0) {
-    return "Zu welchem Thema soll ich mein Second Brain durchsuchen?";
+  if (!isQuestion && !wantsSources && !explicitlyBrain) {
+    return null;
   }
 
-  const patterns = words.map(word => {
-    const escaped = word
-      .replace(/\\/g, "\\\\")
-      .replace(/%/g, "\\%")
-      .replace(/_/g, "\\_");
+  // Bei Quellenfragen das letzte inhaltliche Thema suchen.
+  let searchText = question;
 
-    return "%" + escaped + "%";
-  });
+  if (wantsSources) {
+    const earlierQuestion = [...previousMessages]
+      .reverse()
+      .find(item =>
+        item.role === "user" &&
+        typeof item.content === "string" &&
+        !/(?:woher|quelle|quellen|beleg|nachweis|referenz)/i
+          .test(item.content)
+      );
+
+    if (!earlierQuestion) {
+      return "Auf welche vorherige Antwort beziehst du dich?";
+    }
+
+    searchText = earlierQuestion.content;
+  }
+
+  const stopwords = new Set([
+    "was", "wissen", "haben", "hatten", "hast",
+    "gespeichert", "festgehalten", "unserem",
+    "unseren", "unserer", "meinem", "meinen",
+    "deinem", "deinen", "second", "brain",
+    "über", "dazu", "zum", "eine", "einen",
+    "einem", "wurde", "wurden", "bereits",
+    "schon", "bitte", "kannst", "können",
+    "findest", "finden", "thema", "themen",
+    "informationen", "welche", "welcher",
+    "welches", "erinnerst", "dich", "alles",
+    "sagen", "erzählen", "erzähle", "kann",
+    "geben", "zeige", "darüber", "etwas",
+    "mir", "uns", "diese", "dieses",
+    "sind", "noch", "mehr", "dass"
+  ]);
+
+  const rawWords =
+    searchText.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [];
+
+  const searchWords = new Set();
+
+  for (const word of rawWords) {
+    if (stopwords.has(word)) continue;
+
+    searchWords.add(word);
+
+    // Zusammengesetzte Begriffe besser auffinden.
+    // Beispiel: Supportautomatisierung -> Support
+    const base = word.replace(
+      /(automatisierung|automation|management|systeme?|prozesse?)$/,
+      ""
+    );
+
+    if (base.length >= 4 && base !== word) {
+      searchWords.add(base);
+    }
+  }
+
+  const words = [...searchWords].slice(0, 8);
+
+  if (words.length === 0) {
+    return wantsSources
+      ? "Ich kann die vorherige Antwort keinem eindeutigen Wissenseintrag zuordnen."
+      : explicitlyBrain
+        ? "Zu welchem Thema soll ich mein Second Brain durchsuchen?"
+        : null;
+  }
+
+  const patterns = words.map(word => "%" + word + "%");
 
   const clauses = patterns.map(() => `
     (
-      title LIKE ? ESCAPE '\\'
-      OR summary LIKE ? ESCAPE '\\'
-      OR content LIKE ? ESCAPE '\\'
-      OR tags LIKE ? ESCAPE '\\'
+      title LIKE ?
+      OR summary LIKE ?
+      OR content LIKE ?
+      OR tags LIKE ?
     )
   `);
 
@@ -115,7 +148,8 @@ if (!isQuestion) {
        id,
        title,
        summary,
-       verification_status
+       verification_status,
+       source_urls
      FROM brain_entries
      WHERE ${clauses.join(" OR ")}
      ORDER BY created_at DESC
@@ -125,15 +159,83 @@ if (!isQuestion) {
   const entries = result.results || [];
 
   if (entries.length === 0) {
-    return "Dazu habe ich noch keine passenden Informationen in meinem Second Brain gespeichert.";
+    if (wantsSources) {
+      return "Ich konnte zu diesem Gesprächsthema keine passenden gespeicherten Quellen finden.";
+    }
+
+    if (explicitlyBrain) {
+      return "Dazu habe ich noch keine passenden Informationen in meinem Second Brain gespeichert.";
+    }
+
+    // Andere Fragen normal durch die Chat-KI beantworten.
+    return null;
   }
 
+  // Quellen nur auf ausdrückliche Nachfrage ausgeben.
+  if (wantsSources) {
+    const lines = [
+      "Zu meiner vorherigen Antwort passen diese gespeicherten Wissenseinträge:",
+      ""
+    ];
+
+    for (const entry of entries) {
+      lines.push("- " + entry.title);
+
+      let urls = [];
+
+      try {
+        const parsed = JSON.parse(entry.source_urls || "[]");
+        if (Array.isArray(parsed)) urls = parsed;
+      } catch {
+        // Fehlerhafte Quellenfelder nicht als Beleg ausgeben.
+      }
+
+      const validUrls = urls
+        .map(item =>
+          typeof item === "string" ? item : item?.url
+        )
+        .filter(url =>
+          typeof url === "string" &&
+          /^https:\/\/[^\s]+$/i.test(url)
+        )
+        .slice(0, 4);
+
+      if (validUrls.length > 0) {
+        for (const url of validUrls) {
+          lines.push("  Originalquelle: " + url);
+        }
+      } else {
+        lines.push("  Keine Original-URL hinterlegt.");
+      }
+
+      if (entry.verification_status !== "verified") {
+        lines.push("  Status: Nicht extern verifiziert.");
+      }
+
+      lines.push("");
+    }
+
+    lines.push(
+      "Hinweis: Das sind thematisch passende Einträge aus meinem Second Brain. " +
+      "Welche Einträge exakt für die letzte Antwort verwendet wurden, " +
+      "wird noch nicht gesondert protokolliert."
+    );
+
+    return lines.join("\n").trim();
+  }
+
+  // Normale Antwort aus dem gespeicherten Wissen erstellen.
   const answerResult = await callAI(
     env,
     "/api/brain-answer",
     {
-      question: message,
-      entries
+      question,
+      entries: entries.map(entry => ({
+        id: entry.id,
+        title: entry.title,
+        summary: entry.summary,
+        verification_status: entry.verification_status
+      }))
     }
   );
 
@@ -145,8 +247,35 @@ if (!isQuestion) {
     throw new Error("Invalid Second Brain answer");
   }
 
-  return answerResult.answer.trim();
+  let answer = answerResult.answer.trim();
+
+  // Technische UUIDs nicht im Antworttext anzeigen.
+  answer = answer.replace(
+    /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+    ""
+  );
+
+  // Automatisch erzeugte Quellenliste entfernen.
+  // Quellen werden separat auf Nachfrage geliefert.
+  answer = answer.split(
+    /\n\s*(?:Quellen|Sources|Verwendete Quellen)\s*:/i
+  )[0].trim();
+
+  const unverified = entries.every(
+    entry => entry.verification_status !== "verified"
+  );
+
+  if (
+    unverified &&
+    !/nicht extern (?:überprüft|verifiziert)|unverifiziert|unverified/i
+      .test(answer)
+  ) {
+    answer += "\n\nHinweis: Die gefundenen Wissenseinträge sind nicht extern verifiziert.";
+  }
+
+  return answer;
 }
+
 
 function validDate(value) {
   if (value === "") return true;
@@ -297,7 +426,8 @@ export async function onRequestPost({ request, env }) {
 try {
   const brainReply = await maybeAnswerFromBrain(
     env,
-    currentMessage
+    currentMessage,
+    previousMessages
   );
   if (brainReply !== null) {
   answerSource = "second_brain";
