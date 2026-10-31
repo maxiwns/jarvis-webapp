@@ -403,17 +403,27 @@
 
     draw(null, sidebar);
 
-    // Auch Kategorien ohne gültigen Elternordner darstellen.
-    for (const folder of categories) {
-      if (!visited.has(folder.id)) {
-        sidebar.append(createButton(
-          "📁 " + folder.name,
-          "jbl-folder-button",
-          () => openFolder(folder.id)
-        ));
-      }
-    }
+    
+// Nur echte Hauptkategorien ohne gültigen Elternordner
+// zusätzlich anzeigen. Geschlossene Unterordner bleiben unsichtbar.
+for (const folder of categories) {
+  const parentExists = categories.some(
+    category => category.id === folder.parent_id
+  );
+
+  if (
+    !visited.has(folder.id) &&
+    folder.parent_id &&
+    !parentExists
+  ) {
+    sidebar.append(createButton(
+      "📁 " + folder.name,
+      "jbl-folder-button",
+      () => openFolder(folder.id)
+    ));
   }
+}
+
 
   function renderBreadcrumb() {
     breadcrumb.replaceChildren();
