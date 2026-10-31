@@ -401,21 +401,12 @@
       }
     }
 
+    
     draw(null, sidebar);
-
-    // Auch Kategorien ohne gültigen Elternordner darstellen.
-    for (const folder of categories) {
-      if (!visited.has(folder.id)) {
-        sidebar.append(createButton(
-          "📁 " + folder.name,
-          "jbl-folder-button",
-          () => openFolder(folder.id)
-        ));
-      }
-    }
   }
 
   function renderBreadcrumb() {
+
     breadcrumb.replaceChildren();
 
     breadcrumb.append(
