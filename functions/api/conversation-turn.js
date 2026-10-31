@@ -60,7 +60,33 @@ async function maybeAnswerFromBrain(env, message, previousMessages = []) {
   }
 
   // Bei Quellenfragen das letzte inhaltliche Thema suchen.
-  let searchText = question;
+  
+let searchText = question;
+
+// Kurze Rückfragen auf das vorherige Nutzerthema beziehen.
+const isFollowUp =
+  /^(kannst du|könntest du|erkläre|erklär|und wie|was bedeutet|warum|wie genau|mehr dazu)/i
+    .test(question) &&
+  /\b(das|dazu|darüber|genauer|mehr|davon|es)\b/i
+    .test(question);
+
+if (isFollowUp && !wantsSources) {
+  const previousTopic = [...previousMessages]
+    .reverse()
+    .find(item =>
+      item.role === "user" &&
+      typeof item.content === "string" &&
+      !/(?:woher|quelle|quellen|beleg|nachweis|referenz)/i
+        .test(item.content) &&
+      !/^(kannst du|könntest du|erkläre|erklär|und wie|was bedeutet|warum)/i
+        .test(item.content)
+    );
+
+  if (previousTopic) {
+    searchText = previousTopic.content;
+  }
+}
+
 
   if (wantsSources) {
     const earlierQuestion = [...previousMessages]
