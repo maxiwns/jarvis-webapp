@@ -984,6 +984,7 @@
     ).slice(0, 40);
   }
 
+  let pendingTurn;
   send.onclick = async () => {
     if (!activeId || busy) {
       setStatus(
@@ -1099,6 +1100,9 @@ if (task) {
 
     setBusy(true);
     setStatus("JARVIS denkt …");
+    if (pendingTurn?.chatId !== chatId || pendingTurn.message !== message) {
+      pendingTurn = { chatId, message, id: crypto.randomUUID() };
+    }
 
     const pendingMessage = node(
       "div",
@@ -1124,6 +1128,7 @@ if (task) {
           body: JSON.stringify({
             chatId,
             message,
+            turnId: pendingTurn.id,
             model: selected
           })
         }
@@ -1134,6 +1139,7 @@ if (task) {
           "Speicherung nicht bestätigt"
         );
       }
+      pendingTurn = null;
       if (data.action === "create_task") {
   window.dispatchEvent(
     new CustomEvent("jarvis:tasks-updated")

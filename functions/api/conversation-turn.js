@@ -1,5 +1,6 @@
 
 /* JARVIS 0.9 – Chat, persönliche Aufgaben und JARVIS-Aufträge */
+import { runReport } from "../_lib/run-report.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -10,14 +11,15 @@ function reply(data, status = 200) {
   });
 }
 
-async function callAI(env, path, body) {
+async function callAI(env, path, body, signal) {
   const response = await fetch(BACKEND_URL + path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: "Bearer " + env.JARVIS_BACKEND_API_KEY
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal
   });
 
   if (!response.ok) {
@@ -26,6 +28,28 @@ async function callAI(env, path, body) {
   }
 
   return response.json();
+}
+
+async function processOrder(env, jobId, instruction) {
+  let decision;
+  try {
+    decision = await callAI(env, "/api/tool-plan", { instruction }, AbortSignal.timeout(20000));
+  } catch {
+    return "Dein Auftrag ist gespeichert. Die Werkzeugplanung ist fehlgeschlagen. Der Auftrag bleibt offen.";
+  }
+  const plan = decision?.plan;
+  if (decision?.success !== true || decision.executed !== false || plan?.executed !== false ||
+      plan.approvalRequired !== false || plan.browserRequired !== false ||
+      !Array.isArray(plan.missing) || plan.missing.length !== 0 ||
+      ![plan.tools, plan.ready].every(list => Array.isArray(list) && list.length === 1 && list[0] === "reports")) {
+    return "Dein Auftrag bleibt offen. Automatisch kann ich derzeit reine Berichte ohne externe Recherche erstellen. Für diesen Auftrag liegt kein passender freigegebener Plan vor.";
+  }
+  const response = await runReport(env, jobId);
+  const result = await response.json();
+  if (response.ok && result.success === true) {
+    return "Dein Bericht ist fertig und in der Auftragszentrale gespeichert. Er wurde ohne Webrecherche erstellt.";
+  }
+  return "Dein Auftrag ist gespeichert. Der automatische Lauf konnte keinen neuen Abschluss bestätigen. Den aktuellen Stand findest du in der Auftragszentrale.";
 }
 
 /*
@@ -365,6 +389,11 @@ export async function onRequestPost({ request, env }) {
   const chatId = body?.chatId;
   const message = body?.message;
   const model = body?.model || "auto";
+  const turnId = body?.turnId;
+  if (turnId !== undefined && (typeof turnId !== "string" ||
+      !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(turnId))) {
+    return reply({ error: "Invalid turn ID" }, 400);
+  }
 
   if (typeof chatId !== "string" ||
       !/^[a-f0-9-]{36}$/i.test(chatId) ||
@@ -377,12 +406,26 @@ export async function onRequestPost({ request, env }) {
   }
 
   const currentMessage = message.trim();
+  async function existingOrderReply() {
+    if (!turnId) return null;
+    const existing = await env.DB.prepare(
+      `SELECT m.content, j.instruction FROM messages m
+       JOIN agent_jobs j ON j.id = m.id
+       WHERE m.chat_id = ? AND m.id = ? AND m.role = 'assistant'`
+    ).bind(chatId, turnId).first();
+    if (!existing) return null;
+    if (existing.instruction !== currentMessage) return reply({ error: "Turn ID already used" }, 409);
+    return reply({ status: "success", saved: true, action: "create_order", jobId: turnId,
+      taskId: null, answerSource: "normal_chat", model: "llama-3.1", reply: existing.content });
+  }
 
   try {
     const chat = await env.DB.prepare(
       "SELECT id FROM chats WHERE id = ?"
     ).bind(chatId).first();
     if (!chat) return reply({ error: "Chat not found" }, 404);
+    const previous = await existingOrderReply();
+    if (previous) return previous;
   } catch {
     return reply({ error: "Database unavailable" }, 503);
   }
@@ -406,6 +449,7 @@ export async function onRequestPost({ request, env }) {
   let answer;
   let taskId = null;
   let jobId = null;
+  const assistantMessageId = intent.action === "create_order" && turnId ? turnId : crypto.randomUUID();
   let answerSource = "normal_chat"
 
   if (intent.action === "create_task") {
@@ -414,10 +458,8 @@ export async function onRequestPost({ request, env }) {
       "“ auf deine Aufgabenliste gesetzt." +
       (intent.due ? " Fällig am " + intent.due + "." : "");
   } else if (intent.action === "create_order") {
-    jobId = crypto.randomUUID();
-    answer = "Ich habe deinen Auftrag „" + intent.title +
-      "“ gespeichert. Status: offen. Die automatische Bearbeitung " +
-      "ist noch nicht eingerichtet; ich habe die Arbeit noch nicht gestartet.";
+    jobId = assistantMessageId;
+    answer = "Dein Auftrag „" + intent.title + "“ ist gespeichert. Den Bearbeitungsstand findest du in der Auftragszentrale.";
   } else if (intent.action === "sensitive_action") {
     answer = "Du möchtest eine sensible Aktion durchführen: „" +
       intent.title + "“. Dafür ist eine Freigabe nötig. " +
@@ -509,7 +551,7 @@ try {
     env.DB.prepare(
       `INSERT INTO messages (id, chat_id, role, content)
        VALUES (?, ?, 'assistant', ?)`
-    ).bind(crypto.randomUUID(), chatId, answer),
+    ).bind(assistantMessageId, chatId, answer),
     env.DB.prepare(
       `UPDATE chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`
     ).bind(chatId)
@@ -518,8 +560,24 @@ try {
   try {
     await env.DB.batch(writes);
   } catch (error) {
+    if (jobId && turnId) {
+      const previous = await existingOrderReply().catch(() => null);
+      if (previous) return previous;
+    }
     console.error("JARVIS D1 save failed", error?.name || "Error");
     return reply({ error: "Action or conversation could not be saved" }, 500);
+  }
+
+  if (jobId) {
+    try {
+      const outcome = await processOrder(env, jobId, currentMessage);
+      const updated = await env.DB.prepare(
+        "UPDATE messages SET content = ? WHERE id = ? AND chat_id = ?"
+      ).bind(outcome, assistantMessageId, chatId).run();
+      if (updated.meta?.changes === 1) answer = outcome;
+    } catch {
+      console.error("JARVIS order outcome unavailable");
+    }
   }
 
   return reply({

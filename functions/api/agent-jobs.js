@@ -10,6 +10,8 @@
  * Führt noch keine Aufträge selbstständig aus.
  */
 
+import { expiredReportSql } from "../_lib/run-report.js";
+
 function reply(data, status = 200) {
   return Response.json(data, {
     status,
@@ -33,6 +35,7 @@ export async function onRequestGet({ env }) {
          title,
          instruction,
          status,
+         (${expiredReportSql}) AS expired,
          result,
          error,
          source,
