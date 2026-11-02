@@ -18,6 +18,33 @@ function reply(data, status = 200) {
   });
 }
 
+// Some installations restrict job states with a SQLite CHECK. Use the
+// names declared by that table for all three writes, including completion.
+async function jobStates(db) {
+  const row = await db.prepare(
+    "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'agent_jobs'"
+  ).first();
+  const match = /\bCHECK\s*\(\s*["`\[]?status["`\]]?\s+IN\s*\(([^()]+)\)/i.exec(row?.sql || "");
+  const allowed = match && new Set(
+    Array.from(match[1].matchAll(/['"]([a-z_]+)['"]/gi), token => token[1])
+  );
+  const choose = (...names) => allowed ? names.find(name => allowed.has(name)) : names[0];
+  return {
+    allowed: allowed ? [...allowed].slice(0, 15).join(", ").slice(0, 180) : "",
+    running: choose("running", "in_progress", "processing"),
+    completed: choose("completed", "done"),
+    failed: choose("failed", "error")
+  };
+}
+
+function startError(error) {
+  const reason = [error?.message, error?.cause?.message].join(" ");
+  if (/CHECK constraint/i.test(reason)) return "D1 lehnt den Statuswechsel durch eine Tabellenregel ab.";
+  if (/NOT NULL constraint/i.test(reason)) return "D1 verlangt beim Start einen Wert für ein Pflichtfeld.";
+  if (/no such column/i.test(reason)) return "In der Auftragstabelle fehlt eine benötigte Spalte.";
+  return "D1 konnte den Auftrag nicht zur Bearbeitung reservieren.";
+}
+
 export async function onRequestPost({ request, env }) {
   const origin = new URL(request.url).origin;
 
@@ -93,22 +120,28 @@ export async function onRequestPost({ request, env }) {
 
   // Auftrag atomar reservieren.
   // Verhindert parallele Ausführung desselben Auftrags.
+  let states;
   try {
+    states = await jobStates(env.DB);
+    if (!states.running || !states.completed || !states.failed) {
+      return reply({ error: "Der Auftragsablauf passt nicht zu den Statuswerten in D1: " + states.allowed }, 500);
+    }
     const claim = await env.DB.prepare(
       `UPDATE agent_jobs
-       SET status = 'running',
-           error = NULL,
+       SET status = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'open'`
-    ).bind(jobId).run();
+    ).bind(states.running, jobId).run();
 
     if (claim.meta?.changes !== 1) {
       return reply({
         error: "Job was already claimed"
       }, 409);
     }
-  } catch {
-    return reply({ error: "Could not start job" }, 500);
+  } catch (error) {
+    const reason = startError(error);
+    console.error("JARVIS job claim failed", reason);
+    return reply({ error: reason }, 500);
   }
 
   try {
@@ -160,13 +193,13 @@ export async function onRequestPost({ request, env }) {
     // Fertiges Ergebnis dauerhaft sichern.
     const completed = await env.DB.prepare(
       `UPDATE agent_jobs
-       SET status = 'completed',
+       SET status = ?,
            result = ?,
-           error = NULL,
+           error = '',
            updated_at = CURRENT_TIMESTAMP,
            completed_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND status = 'running'`
-    ).bind(report.slice(0, 30000), jobId).run();
+       WHERE id = ? AND status = ?`
+    ).bind(states.completed, report.slice(0, 30000), jobId, states.running).run();
 
     if (completed.meta?.changes !== 1) {
       throw new Error("Job completion could not be saved");
@@ -175,7 +208,7 @@ export async function onRequestPost({ request, env }) {
     return reply({
       success: true,
       jobId,
-      status: "completed",
+      status: states.completed,
       tool: "reports",
       result: report,
       sourceBased: data.result?.sourceBased === true,
@@ -197,21 +230,23 @@ export async function onRequestPost({ request, env }) {
 
     // Auch fehlgeschlagene Aufträge nachvollziehbar speichern.
     try {
-      await env.DB.prepare(
+      const failure = await env.DB.prepare(
         `UPDATE agent_jobs
-         SET status = 'failed',
+         SET status = ?,
              error = ?,
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND status = 'running'`
-      ).bind(message.slice(0, 500), jobId).run();
+         WHERE id = ? AND status = ?`
+      ).bind(states.failed, message.slice(0, 500), jobId, states.running).run();
+      if (failure.meta?.changes !== 1) throw new Error("Job state changed");
     } catch {
       console.error("Could not persist job failure");
+      return reply({ success: false, jobId, error: "Der Abschlussstatus konnte nicht in D1 gespeichert werden." }, 503);
     }
 
     return reply({
       success: false,
       jobId,
-      status: "failed",
+      status: states.failed,
       error: message
     }, 502);
   }
