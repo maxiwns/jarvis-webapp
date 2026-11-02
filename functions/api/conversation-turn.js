@@ -1,6 +1,7 @@
 
 /* JARVIS 0.9 – Chat, persönliche Aufgaben und JARVIS-Aufträge */
 import { reportPage, runReport } from "../_lib/run-report.js";
+import { wikipediaTopic } from "../_lib/wikipedia.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -41,7 +42,8 @@ function isGeneralComparisonReport(instruction) {
 }
 
 async function planOrder(env, instruction) {
-  if (isGeneralComparisonReport(instruction) || reportPage(instruction)) return null;
+  if (isGeneralComparisonReport(instruction) || reportPage(instruction) || wikipediaTopic(instruction)) return null;
+  if (/wikipedia[- ]bericht/iu.test(instruction)) return "Dein Auftrag bleibt offen. Für die Wikipedia-Suche schreibe bitte „Erstelle einen Wikipedia-Bericht über …“ mit einem einzelnen Suchthema.";
   if (/https?:\/\//i.test(instruction)) {
     return "Dein Auftrag bleibt offen. Für einen Bericht aus einer einzelnen Quelle schreibe bitte: Erstelle einen Bericht aus dieser Webseite: gefolgt von der HTTPS-Adresse.";
   }
@@ -79,6 +81,7 @@ async function processOrder(env, jobId, instruction) {
   const response = await runReport(env, jobId);
   const result = await response.json();
   if (response.ok && result.success === true) {
+    if (wikipediaTopic(instruction)) return "Dein Wikipedia-Bericht ist fertig. Den Bericht mit den gelesenen Artikeln findest du in der Auftragszentrale.";
     if (result.sourceBased) return "Dein Bericht ist fertig. In der Auftragszentrale findest du den Text, die gelesene Webseite und den Abrufzeitpunkt.";
     return "Dein Bericht ist fertig und in der Auftragszentrale gespeichert. Er wurde ohne Webrecherche erstellt.";
   }

@@ -1,3 +1,5 @@
+import { wikipediaTopic, searchWikipedia } from "./wikipedia.js";
+
 const BACKEND_URL =
   "https://jarvis-backend.maxiwiens.workers.dev";
 const REPORT_TIMEOUT_SECONDS = 90;
@@ -125,9 +127,15 @@ export async function runReport(env, jobId, retry = false) {
 
   try {
     const pageUrl = reportPage(job.instruction);
+    const topic = wikipediaTopic(job.instruction);
     const args = { instruction: job.instruction };
     let sourceNote = "";
-    if (pageUrl) {
+    if (topic) {
+      const material = await searchWikipedia(topic);
+      args.sourceText = material.sourceText;
+      args.sourceUrls = material.sourceUrls;
+      sourceNote = material.note;
+    } else if (pageUrl) {
       const page = await executeTool(env, "web_read", { url: pageUrl });
       if (page.success !== true || page.url !== pageUrl ||
           typeof page.content !== "string" || !page.content.trim() ||
@@ -139,12 +147,15 @@ export async function runReport(env, jobId, retry = false) {
       const partial = page.truncated || page.content.length > args.sourceText.length;
       sourceNote = "\n\nGelesene Quelle: " + page.url + "\nAbruf: " + page.fetchedAt +
         (partial ? "\nFür den Bericht wurde ein Seitenausschnitt verwendet." : "");
+    } else if (/wikipedia[- ]bericht/iu.test(job.instruction)) {
+      throw new Error("Für die Wikipedia-Suche bitte einen Bericht mit einem einzelnen Suchthema anfordern.");
     } else if (/https?:\/\//i.test(job.instruction)) {
       throw new Error("Für einen Quellenbericht bitte genau eine Seite angeben: Erstelle einen Bericht aus dieser Webseite: https://…");
     }
     const result = await executeTool(env, "reports", args);
-    if (pageUrl && (result.sourceBased !== true || result.sourceUrls?.length !== 1 ||
-        result.sourceUrls[0] !== pageUrl)) {
+    if (args.sourceUrls && (result.sourceBased !== true || !Array.isArray(result.sourceUrls) ||
+        result.sourceUrls.length !== args.sourceUrls.length ||
+        !args.sourceUrls.every((url, index) => result.sourceUrls[index] === url))) {
       throw new Error("Verarbeitung der gelesenen Quelle nicht bestätigt.");
     }
     if (typeof result.report !== "string" || !result.report.trim() || result.report.length > 30000) {
@@ -173,8 +184,8 @@ export async function runReport(env, jobId, retry = false) {
       status: states.completed,
       tool: "reports",
       result: report,
-      sourceBased: Boolean(pageUrl),
-      sourceUrls: pageUrl ? [pageUrl] : []
+      sourceBased: Boolean(args.sourceUrls),
+      sourceUrls: args.sourceUrls || []
     });
 
   } catch (error) {
