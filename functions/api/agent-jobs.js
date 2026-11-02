@@ -22,7 +22,7 @@ function reply(data, status = 200) {
   });
 }
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ env, request }) {
   if (!env.DB) {
     return reply({
       error: "Database unavailable"
@@ -30,6 +30,15 @@ export async function onRequestGet({ env }) {
   }
 
   try {
+    const params = request && new URL(request.url).searchParams;
+    if (params?.has("jobId")) {
+      const row = await env.DB.prepare(
+        `SELECT j.title,j.result FROM agent_jobs j JOIN messages m ON m.id=j.id
+         WHERE j.id=? AND m.chat_id=? AND m.role='assistant' AND j.status IN ('done','completed')`
+      ).bind(params.get("jobId"),params.get("chatId") || "").first();
+      if (!row) return reply({error:"Bericht nicht mehr verfügbar."},404);
+      return reply({success:true, title:row.title, ...readReport(row.result)});
+    }
     const result = await env.DB.prepare(
       `SELECT
          id,

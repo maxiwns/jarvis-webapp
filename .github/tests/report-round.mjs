@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { onRequestPost as chat } from "../../functions/api/conversation-turn.js";
 import { onRequestPost as start } from "../../functions/api/agent-run.js";
 import { onRequestGet as list } from "../../functions/api/agent-jobs.js";
+import { onRequestGet as getMessages } from "../../functions/api/messages.js";
 import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
 import worker from "../../../backend/worker.js";
 
@@ -12,7 +13,7 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
   db.exec(`CREATE TABLE chats(id PRIMARY KEY, updated_at);
-    CREATE TABLE messages(id PRIMARY KEY, chat_id, role, content);
+    CREATE TABLE messages(id PRIMARY KEY, chat_id, role, content, created_at DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE tasks(id PRIMARY KEY, title, area, priority, due, done, source);
     CREATE TABLE brain_categories(id PRIMARY KEY, name, parent_id, unique(name,parent_id));
     CREATE TABLE brain_entries(id PRIMARY KEY,title,content,summary,category_id,entry_type,
@@ -67,8 +68,23 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     chatId,turnId,message}).then(r=>r.json()),
     start:(retry=false)=>post(start,"/api/agent-run",{jobId:turnId,retry}),
     save:(body={jobId:turnId})=>post(saveKnowledge,"/api/brain-save",body),
+    messages:()=>getMessages({env,request:new Request("https://local/api/messages?chatId="+chatId)}),
+    document:(id=chatId)=>list({env,request:new Request("https://local/api/agent-jobs?jobId="+turnId+"&chatId="+id)}),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
+
+test("Berichtsleser verbindet den gespeicherten Bericht nur mit seinem Gespräch",async t=>{
+  const f=fixture(t);
+  await f.turn();
+  const {messages}=await (await f.messages()).json();
+  assert.equal(messages[0].report_id,null);
+  assert.equal(messages[1].report_id,f.turnId);
+  assert.equal((await (await f.document()).json()).text,(await f.list())[0].result);
+  assert.equal((await f.document(crypto.randomUUID())).status,404);
+  f.db.prepare("DELETE FROM agent_jobs WHERE id=?").run(f.turnId);
+  assert.equal((await f.document()).status,404);
+  assert.equal((await (await f.messages()).json()).messages[1].report_id,null);
+});
 
 test("Allgemeiner Vergleichsbericht verwendet den festen Berichtsplan", async t => {
   const f = fixture(t,{tools:["jobs","reports"]});

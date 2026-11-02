@@ -29,11 +29,12 @@ export async function onRequestGet({ request, env }) {
     }
 
     const result = await env.DB.prepare(
-      `SELECT id, chat_id, role, content, created_at
-       FROM messages
-       WHERE chat_id = ?
-       ORDER BY created_at ASC, rowid ASC
-       LIMIT 200`
+      `SELECT m.id, m.chat_id, m.role, m.content, m.created_at, j.id AS report_id, j.title AS report_title
+       FROM (SELECT *, rowid AS sequence FROM messages WHERE chat_id = ?
+         ORDER BY created_at DESC, rowid DESC LIMIT 200) m
+       LEFT JOIN agent_jobs j ON m.role = 'assistant' AND j.id = m.id
+         AND j.status IN ('done','completed') AND length(j.result) > 0
+       ORDER BY m.created_at, m.sequence`
     ).bind(chatId).all();
 
     return respond({ messages: result.results });

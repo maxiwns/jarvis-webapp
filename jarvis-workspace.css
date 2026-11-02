@@ -1,0 +1,50 @@
+/* Conversation desk and adjacent document reader */
+:root { --jr-accent:#8cd6df; --jr-line:#343e46; --jr-paper:#171d23; }
+.shell > aside {background:#11171c;border-color:var(--jr-line)}
+.shell > aside .core {background:radial-gradient(circle,#d1faff 0 12%,#14262e 16% 55%,#83d4dd 60% 65%,#14262e 70%);box-shadow:none}
+#sidebar button.active,#bottomnav button.active {background:#20333c;color:#d9f9fc;border-color:#3b5965}
+.jarvis-chat-active main {max-width:none;padding:14px 16px 0}
+.jarvis-chat-active .top {margin-bottom:12px}
+#chat #jarvis-cloud-manager {
+  position:relative;isolation:isolate;grid-template-columns:minmax(0,var(--jr-chat-width,380px)) 12px minmax(0,1fr);
+  border:1px solid var(--jr-line);border-radius:14px;background:#11171c
+}
+#chat #jarvis-cloud-manager .jcm-main {background:#151b20;border:0;border-radius:0;padding:clamp(10px,1.4vw,20px)}
+#chat #jarvis-cloud-manager .jcm-divider {width:12px;min-width:12px;background:#11171c;border-inline:1px solid #263039}
+#chat #jarvis-cloud-manager .jcm-divider::after {height:38px;width:2px;background:#617984}
+#chat #jarvis-cloud-manager .jcm-composer {background:#202a32;border-color:#42515a}
+#chat #jarvis-cloud-manager textarea.jcm-composer-input {background:transparent}
+#chat #jarvis-cloud-manager .jcm-send-button {background:var(--jr-accent)}
+#chat #jarvis-cloud-manager .jcm-user {background:#263b46;border:1px solid #3b535f}
+#chat #jarvis-cloud-manager .jcm-assistant {background:#1d262d;border-color:#323f48}
+#chat .jr-bar {display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+#chat .jr-bar strong {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#chat .jr-label {font-size:.77rem;letter-spacing:.09em;text-transform:uppercase;color:#b9cdd6}
+#chat #jr-history {position:absolute;z-index:4;inset:0 auto 0 0;width:min(350px,96%);display:flex;flex-direction:column;background:#1a232a;border:1px solid #53636e;border-radius:12px;box-shadow:8px 0 30px #0006}
+#chat #jr-history[hidden],#chat [hidden].jr-footer {display:none}
+#jr-history > button:first-child {align-self:flex-end;margin-bottom:8px}
+#chat .jr-reader {min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--jr-paper);color:#e6edf1}
+#chat .jr-reader > .jr-bar,#chat .jr-footer {padding:12px 18px;border-bottom:1px solid var(--jr-line)}
+#chat .jr-paper {padding:clamp(16px,3.4vw,56px);min-height:0;overflow:auto;flex:1;overflow-wrap:anywhere}
+#chat .jr-paper h2 {font-size:clamp(22px,2vw,34px);line-height:1.18;letter-spacing:-.025em;margin:0 0 1em}
+#chat .jr-text {max-width:72ch;white-space:pre-wrap;line-height:1.72}
+#chat .jr-links {display:grid;gap:6px}
+#chat .jr-links a {color:var(--jr-accent)}
+#chat .jr-open {display:block;margin-top:8px;color:var(--jr-accent)}
+#chat .jr-footer {display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;border-block:1px solid var(--jr-line) 0}
+#chat .jr-footer summary {cursor:pointer}
+#chat .jr-footer label {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px}
+#chat .jr-footer select {max-width:150px}
+#chat .jr-info {color:#b1c1c8;font-size:.82rem}
+#chat .jr-back {display:none}
+@media(max-width:1000px) {
+  #chat #jarvis-cloud-manager {grid-template-columns:minmax(0,1fr)}
+  #chat #jarvis-cloud-manager .jcm-divider,#chat .jr-reader {display:none}
+  #chat #jarvis-cloud-manager.jr-reading .jcm-main {display:none}
+  #chat .jr-reading .jr-reader {display:flex}
+  #chat .jr-back {display:inline-block}
+}
+@media(max-width:540px) {
+  .jarvis-chat-active main {padding:8px 8px 0}
+  #chat .jr-footer {padding:8px}
+}

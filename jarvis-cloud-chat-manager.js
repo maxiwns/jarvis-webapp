@@ -235,7 +235,7 @@
   root.id = "jarvis-cloud-manager";
 
   const side = node("div", "jcm-panel");
-  const create = node("button", "btn primary", "+ Neuer Cloud-Chat");
+  const create = node("button", "btn primary", "+ Neues Gespräch");
   const search = node("input", "field");
   const list = node("div", "jcm-list");
 
@@ -246,8 +246,7 @@
   const notice = node(
     "p",
     "jcm-note",
-    "Cloudflare D1 · geräteübergreifend. " +
-    "Bisherige lokale Chats bleiben gespeichert."
+    "Deine gespeicherten Gespräche"
   );
 
   side.append(create, search, list, notice);
@@ -256,11 +255,14 @@
   divider.setAttribute("role", "separator");
   divider.setAttribute(
     "aria-label",
-    "Chatliste vergrößern oder verkleinern"
+    "Breite des Gesprächs ändern"
   );
   divider.setAttribute("aria-orientation", "vertical");
+  divider.tabIndex = 0;
+  divider.setAttribute("aria-controls","jr-conversation");
 
   const main = node("div", "jcm-panel jcm-main");
+  main.id = "jr-conversation";
   const title = node("strong", null, "Cloud-Chat");
   const messages = node("div", "jcm-messages");
   messages.setAttribute("role", "log");
@@ -333,8 +335,33 @@
   const composer = node("div", "jcm-composer");
   composer.append(plusButton, microphone, input, reload, send);
 
-  main.append(title, messages, composer, status);
-  root.append(side, divider, main);
+  const chatBar = node("header","jr-bar");
+  const history = node("button","chip","Gespräche");
+  side.id = "jr-history";
+  history.setAttribute("aria-controls",side.id);
+  const hideHistory = node("button","chip","Schließen");
+  side.prepend(hideHistory);
+  function toggleHistory(visible) {
+    side.hidden = !visible;
+    history.setAttribute("aria-expanded",String(visible));
+    if (visible) search.focus();
+  }
+  history.onclick = () => toggleHistory(side.hidden);
+  hideHistory.onclick = () => { toggleHistory(false); history.focus(); };
+  root.addEventListener("keydown",event=>{
+    if (event.key === "Escape" && !side.hidden) hideHistory.click();
+  });
+  toggleHistory(false);
+  chatBar.append(title,history);
+  main.append(chatBar, messages, composer, status);
+  const panel = node("section","jr-reader");
+  panel.setAttribute("aria-label","Bericht lesen");
+  const reader = window.createJarvisReader(panel, () => {
+    root.classList.remove("jr-reading");
+    reader.stop();
+    main.querySelector(".jr-open[aria-pressed=true]")?.focus();
+  }, api);
+  root.append(main, divider, panel, side);
   page.append(root);
 
   let chats = [];
@@ -342,8 +369,8 @@
   let busy = false;
   let selectionVersion = 0;
 
-  const SIDEBAR_WIDTH_KEY = "jarvis_chat_sidebar_width";
-  let sidebarWidth = 230;
+  const SIDEBAR_WIDTH_KEY = "jarvis_conversation_width";
+  let sidebarWidth = 380;
 
   try {
     const stored = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -360,28 +387,24 @@
   } catch {}
 
   function applySidebarWidth(width) {
-    const maxWidth = Math.max(
-      140,
-      Math.floor(root.clientWidth * 0.6)
-    );
-
-    sidebarWidth = width < 70
-      ? 0
-      : Math.max(140, Math.min(width, maxWidth));
-
-    side.style.visibility =
-      sidebarWidth === 0 ? "hidden" : "visible";
-
-    side.style.pointerEvents =
-      sidebarWidth === 0 ? "none" : "auto";
-
-    root.style.gridTemplateColumns =
-      sidebarWidth + "px 14px minmax(0,1fr)";
+    const maxWidth = Math.max(290,Math.floor(root.clientWidth * 0.58));
+    if (!root.clientWidth) return;
+    sidebarWidth = Math.max(290,Math.min(width,maxWidth));
+    root.style.setProperty("--jr-chat-width",sidebarWidth+"px");
+    divider.setAttribute("aria-valuemin","290");
+    divider.setAttribute("aria-valuemax",String(maxWidth));
+    divider.setAttribute("aria-valuenow",String(Math.round(sidebarWidth)));
   }
 
   applySidebarWidth(sidebarWidth);
 
   let draggingDivider = false;
+  divider.onkeydown = event => {
+    if (!["ArrowLeft","ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    applySidebarWidth(sidebarWidth + (event.key === "ArrowRight" ? 24 : -24));
+    try { localStorage.setItem(SIDEBAR_WIDTH_KEY,String(sidebarWidth)); } catch {}
+  };
 
   divider.addEventListener("pointerdown", event => {
     if (
@@ -565,6 +588,8 @@
           if (activeId === chat.id) {
             ++selectionVersion;
             activeId = null;
+            reader.reset();
+            root.classList.remove("jr-reading");
             messages.replaceChildren();
             title.textContent = "Cloud-Chat";
           }
@@ -610,6 +635,9 @@
 
     const version = ++selectionVersion;
     activeId = id;
+    toggleHistory(false);
+    root.classList.remove("jr-reading");
+    reader.reset();
 
     const chat = chats.find(c => c.id === id);
     title.textContent = chat?.title || "Cloud-Chat";
@@ -626,16 +654,31 @@
 
       if (version !== selectionVersion) return;
 
+      let latest = null;
       for (const message of data.messages || []) {
-        messages.append(node(
+        const bubble = node(
           "div",
           "jcm-message " +
           (message.role === "user"
             ? "jcm-user"
             : "jcm-assistant"),
           message.content
-        ));
+        );
+        if (message.report_id) {
+          const button = node("button","chip jr-open","Bericht öffnen");
+          button.setAttribute("aria-pressed","false");
+          const open = (showPanel) => {
+            messages.querySelectorAll(".jr-open").forEach(b=>b.setAttribute("aria-pressed",String(b===button)));
+            if (showPanel) root.classList.add("jr-reading");
+            reader.open(id,message.report_id,message.report_title);
+          };
+          button.onclick = () => open(true);
+          bubble.append(button);
+          latest = open;
+        }
+        messages.append(bubble);
       }
+      if (latest && window.matchMedia("(min-width: 1001px)").matches) latest(false);
 
       if (!data.messages?.length) {
         messages.append(node(
@@ -1243,6 +1286,8 @@ if (task) {
       resizeJarvisChat();
       applySidebarWidth(sidebarWidth);
     } else {
+      reader.stop();
+      toggleHistory(false);
       root.style.height = "";
       root.style.maxHeight = "";
     }
