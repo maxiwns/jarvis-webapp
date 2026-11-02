@@ -591,6 +591,25 @@ function renderAgentJobs(jobs){
    };
    card.append(run);
   }
+  if (retry || ['completed','done'].includes(job.status)) {
+   const remove = el('button','btn quiet','Bericht löschen');
+   remove.onclick = async () => {
+    if (!window.confirm('„' + job.title + '“ mit Auftrag und Ergebnis endgültig löschen?')) return;
+    for (const button of card.querySelectorAll('button')) button.disabled = true;
+    let feedback;
+    try {
+     const query = new URLSearchParams({jobId: job.id, status: job.status});
+     const response = await fetch('/api/agent-jobs?' + query, {method: 'DELETE'});
+     const data = await response.json();
+     if (!response.ok || data.success !== true) throw new Error(data.error || 'Löschen fehlgeschlagen.');
+     feedback = 'Bericht gelöscht.';
+    } catch (error) {
+     feedback = error.message;
+    }
+    await refreshAgentJobs(feedback);
+   };
+   card.append(remove);
+  }
   root.append(card);
  });
 }

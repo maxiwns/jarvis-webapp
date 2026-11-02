@@ -4,6 +4,7 @@
  *
  * GET  /api/agent-jobs
  * POST /api/agent-jobs
+ * DELETE /api/agent-jobs?jobId=...&status=...
  *
  * Verwaltet KI-Aufträge in Cloudflare D1.
  * Führt noch keine Aufträge selbstständig aus.
@@ -57,6 +58,36 @@ export async function onRequestGet({ env }) {
     return reply({
       error: "Could not load jobs"
     }, 500);
+  }
+}
+
+export async function onRequestDelete({ request, env }) {
+  const url = new URL(request.url);
+  if (request.headers.get("Origin") !== url.origin) {
+    return reply({ error: "Forbidden" }, 403);
+  }
+  if (!env.DB) return reply({ error: "Datenbank nicht verfügbar." }, 503);
+
+  const id = url.searchParams.get("jobId");
+  const status = url.searchParams.get("status");
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id || "")) {
+    return reply({ error: "Ungültige Auftrags-ID." }, 400);
+  }
+  if (!["completed", "done", "failed", "error"].includes(status)) {
+    return reply({ error: "Nur abgeschlossene oder fehlgeschlagene Berichte lassen sich löschen." }, 409);
+  }
+
+  try {
+    const deletion = await env.DB.prepare(
+      `DELETE FROM agent_jobs WHERE id = ? AND status = ?
+       AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = agent_jobs.id)`
+    ).bind(id, status).run();
+    if (deletion.meta?.changes !== 1) {
+      return reply({ error: "Der Eintrag wurde geändert, bereits gelöscht oder dient als Quelle im Second Brain." }, 409);
+    }
+    return reply({ success: true });
+  } catch {
+    return reply({ error: "Der Bericht konnte nicht gelöscht werden." }, 500);
   }
 }
 
