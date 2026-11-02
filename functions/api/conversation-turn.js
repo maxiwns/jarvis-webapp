@@ -30,10 +30,26 @@ async function callAI(env, path, body, signal) {
   return response.json();
 }
 
-async function processOrder(env, jobId, instruction) {
+// A standalone request for general pros and cons of one named topic has a
+// fixed deliverable. Additional clauses, sources and follow-ups go through
+// the planner. This route is only reached after the create_order intent.
+function isGeneralComparisonReport(instruction) {
+  const request = instruction.trim().normalize("NFC");
+  const form = /^(?:bitte\s+)?(?:erstelle?|schreibe?|verfasse?)\s+(?:mir\s+)?(?:bitte\s+)?einen\s+(?:(?:kurzen|allgemeinen|ausführlichen)\s+)?bericht\s+über\s+(?:die\s+)?vor-\s+und\s+nachteile\s+von\s+/iu;
+  const prefix = form.exec(request);
+  return prefix !== null && /^\p{Lu}[\p{L}-]{1,79}[.!]?$/u.test(request.slice(prefix[0].length));
+}
+
+async function planOrder(env, instruction) {
+  if (isGeneralComparisonReport(instruction)) return null;
+  const planningInput = [
+    "Der Auftrag ist bereits gespeichert. Plane nur die noch nötigen Arbeitsschritte.",
+    "Für einen allgemeinen Bericht aus Grundlagenwissen genügt reports. Plane zusätzliche Werkzeuge, wenn der Auftrag sie erfordert, etwa für aktuelle Zahlen, Originalquellen oder Versand.",
+    "Auftrag im Wortlaut:", instruction
+  ].join("\n");
   let decision;
   try {
-    decision = await callAI(env, "/api/tool-plan", { instruction }, AbortSignal.timeout(20000));
+    decision = await callAI(env, "/api/tool-plan", { instruction: planningInput }, AbortSignal.timeout(20000));
   } catch {
     return "Dein Auftrag ist gespeichert. Die Werkzeugplanung ist fehlgeschlagen. Der Auftrag bleibt offen.";
   }
@@ -42,8 +58,21 @@ async function processOrder(env, jobId, instruction) {
       plan.approvalRequired !== false || plan.browserRequired !== false ||
       !Array.isArray(plan.missing) || plan.missing.length !== 0 ||
       ![plan.tools, plan.ready].every(list => Array.isArray(list) && list.length === 1 && list[0] === "reports")) {
-    return "Dein Auftrag bleibt offen. Automatisch kann ich derzeit reine Berichte ohne externe Recherche erstellen. Für diesen Auftrag liegt kein passender freigegebener Plan vor.";
+    const labels = new Map([["web_search","Websuche"],["web_read","Lesen einer Webseite"],
+      ["email","E-Mail"],["browser","Browserbedienung"],["tasks","Aufgabenverwaltung"],
+      ["jobs","Auftragsverwaltung"],["reports","Berichtserstellung"]]);
+    const names = Array.isArray(plan?.tools) ? plan.tools.map(id => labels.get(id) || "weiteres Werkzeug") : [];
+    return "Dein Auftrag bleibt offen. " + (names.length
+      ? "Vorgesehene Schritte: " + names.join(", ") + "."
+      : "Der Planer hat keinen ausführbaren Arbeitsschritt angegeben.") +
+      " Automatisch freigegeben ist die reine Berichtserstellung.";
   }
+  return null;
+}
+
+async function processOrder(env, jobId, instruction) {
+  const blocked = await planOrder(env, instruction);
+  if (blocked) return blocked;
   const response = await runReport(env, jobId);
   const result = await response.json();
   if (response.ok && result.success === true) {

@@ -41,11 +41,26 @@ function fixture(t, { action = "create_order", tools = ["reports"], report } = {
   const post = (handler,path,body) => handler({env, request:new Request("https://local"+path,{
     method:"POST",headers:{Origin:"https://local","Content-Type":"application/json"},body:JSON.stringify(body)})});
   const turnId = crypto.randomUUID();
-  return {db, paths, turn:() => post(chat,"/api/conversation-turn",{
-    chatId,turnId,message:"Erstelle einen Bericht über Checklisten."}).then(r=>r.json()),
+  return {db, paths, turn:(message="Erstelle einen Bericht über Checklisten.") => post(chat,"/api/conversation-turn",{
+    chatId,turnId,message}).then(r=>r.json()),
     start:(retry=false)=>post(start,"/api/agent-run",{jobId:turnId,retry}),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
+
+test("Allgemeiner Vergleichsbericht verwendet den festen Berichtsplan", async t => {
+  const f = fixture(t,{tools:["jobs","reports"]});
+  const result = await f.turn("Erstelle einen kurzen Bericht über die Vor- und Nachteile von Checklisten.");
+  assert.match(result.reply,/fertig/);
+  assert.deepEqual(f.paths,["/api/intent","/api/tool-execute"]);
+  assert.equal((await f.list())[0].status,"done");
+});
+
+test("Zusatzauftrag mit Recherche bleibt in der regulären Planung", async t => {
+  const f = fixture(t,{tools:["web_search","reports"]});
+  const result = await f.turn("Erstelle einen kurzen Bericht über die Vor- und Nachteile von Checklisten. Recherchiere aktuelle Zahlen.");
+  assert.match(result.reply,/offen.*Websuche/);
+  assert.deepEqual(f.paths,["/api/intent","/api/tool-plan"]);
+});
 
 test("Chat → Worker-Plan → Tool → gespeicherter Bericht und bestätigte Chatantwort",async t=>{
   const f=fixture(t);
