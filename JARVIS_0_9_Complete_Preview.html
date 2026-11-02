@@ -60,6 +60,9 @@
 
 /* JARVIS 0.9: Dashboard-Details und Cloud-Aufgaben */
 .quick-details{margin-top:10px;display:grid;gap:8px}
+#agent-jobs-list .report-text > summary{padding:10px 0}
+#agent-jobs-list .report-text > summary:after{transform:none}
+#agent-jobs-list .report-text[open] > summary:after{transform:rotate(180deg)}
 .quick-detail{border:1px solid #3a3b40;border-radius:10px;padding:10px 12px;background:#222327;overflow-wrap:anywhere}
 .quick-detail p{margin:5px 0;color:#b9bac1;white-space:pre-wrap}
 .quick-detail label{display:flex;gap:9px;align-items:flex-start;padding:5px 0;cursor:pointer}
@@ -567,13 +570,26 @@ function orderSteps(goal){
 }
 function orderStatus(o){return o.steps.length&&o.steps.every(s=>s.done)?'Abgeschlossen':o.steps.some(s=>s.done)?'In Bearbeitung':'Geplant'}
 function renderAgentJobs(jobs){
- const root=$('#agent-jobs-list');root.replaceChildren();
+ const root=$('#agent-jobs-list');
+ const expanded = new Set(Array.from(root.querySelectorAll('.report-text[open]'), item => item.dataset.jobId));
+ root.replaceChildren();
  if(!jobs.length){root.append(el('p','muted','Keine Cloud-Aufträge vorhanden.'));return}
  jobs.forEach(job=>{
   const card=el('div','order-box');
   const status=el('span','pill',job.status||'unbekannt');
   card.append(status,el('h3',null,job.title||'Auftrag'),el('p','muted',job.instruction||''));
-  if(job.result){const result=el('div','muted',job.result);result.style.whiteSpace='pre-wrap';card.append(result);if(['completed','done'].includes(job.status))card.append(el('p','note','KI-Bericht ohne bereitgestellte Webquellen; nicht als aktuelle Recherche verifiziert.'))}
+  if (job.result) {
+   const details = el('details','report-text');
+   details.dataset.jobId = job.id;
+   details.open = expanded.has(job.id);
+   const result = el('div','muted',job.result);
+   result.style.whiteSpace = 'pre-wrap';
+   details.append(el('summary',null,'Berichtstext'),result);
+   if (['completed','done'].includes(job.status)) {
+    details.append(el('p','note','KI-Bericht ohne bereitgestellte Webquellen; nicht als aktuelle Recherche verifiziert.'));
+   }
+   card.append(details);
+  }
   if(job.error)card.append(el('p','bad','Fehler: '+job.error));
   const retry = ['failed','error'].includes(job.status);
   if(job.status==='open' || retry){
