@@ -78,6 +78,7 @@
 <div class="stack">
 <details class="panel" open=""><summary><span><strong>＋ Neuen Auftrag planen</strong><small>Ziel · Bereich · Priorität</small></span></summary>
 <div class="inner"><form class="stack" id="order-form"><label for="order-goal">Was soll JARVIS erledigen?</label><textarea class="field" id="order-goal" maxlength="1200" placeholder="Recherchiere passende Automatisierungssoftware und vergleiche Funktionen und Preise." required="" rows="4"></textarea><div class="line"><select aria-label="Auftragsbereich" class="field" id="order-area"><option>Business</option><option>Projekte</option><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Allgemein</option></select><select aria-label="Priorität" class="field" id="order-priority"><option value="normal">Normal</option><option value="high">Wichtig</option><option value="low">Später</option></select><button class="btn primary" type="submit">Arbeitsplan erstellen</button></div></form><p class="note">Keine Webseitenrecherche, E-Mail und keine kostenpflichtige KI-Anfrage. Schritte sind Vorschläge und können manuell abgehakt werden.</p></div></details>
+<details class="panel" open=""><summary><span><strong>◎ JARVIS-Aufträge</strong><small>Cloud-Aufträge aus dem Chat ausführen und Ergebnisse ansehen</small></span></summary><div class="inner"><p class="note">Die erste Ausführungsfunktion erstellt einen KI-Bericht ohne Webrecherche. Aktuelle Fakten und Quellen werden nicht automatisch beschafft.</p><div class="line"><button class="chip" type="button" id="agent-jobs-refresh">Aufträge aktualisieren</button></div><div id="agent-jobs-status" class="task-feedback" role="status">Cloud-Aufträge werden geladen.</div><div id="agent-jobs-list"></div></div></details>
 <details class="panel" open=""><summary><span><strong>☷ Meine Arbeitspläne</strong><small>Fortschritt dokumentieren · Ergebnisse sichern</small></span></summary><div class="inner"><div id="order-list"></div></div></details>
 <details class="panel" open id="orders-task-panel"><summary><span><strong>▤ Einzelaufgaben</strong><small>Hier direkt erstellen und bearbeiten · Cloud-Speicherung</small></span></summary><div class="inner"><form class="stack" id="orders-task-form"><label for="orders-task-title">Neue Aufgabe</label><input class="field" id="orders-task-title" maxlength="160" placeholder="Was muss erledigt werden?" required><div class="line"><select aria-label="Bereich" class="field" id="orders-task-area"><option>Business</option><option>Projekte</option><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Allgemein</option></select><select aria-label="Priorität" class="field" id="orders-task-priority"><option value="normal">Normal</option><option value="high">Wichtig</option><option value="low">Später</option></select><input aria-label="Fälligkeitsdatum" class="field" type="date" id="orders-task-due"><button class="btn primary" type="submit">Hinzufügen</button></div></form><div class="task-feedback" role="status" id="orders-task-status">Cloud-Aufgaben werden beim Öffnen geladen.</div><div class="line"><button type="button" class="chip" id="orders-task-refresh">Aktualisieren</button><button type="button" class="chip" id="orders-task-show-all">Alle Aufgaben</button></div><div id="orders-task-list"></div></div></details>
 </div></section><section class="page" hidden="" id="tasks"><div class="hero"><div class="eyebrow">WORKSPACE</div><h1>Aufträge &amp; Aufgaben</h1><p>Aufgaben erfassen, priorisieren, abschließen und filtern.</p></div><div class="stack"><details class="panel" open=""><summary><span><strong>☷ Aufgabenliste</strong><small>Cloud-Aufgaben und vorhandene lokale Einträge</small></span></summary><div class="inner"><form class="stack" id="task-form"><input class="field" id="task-title" maxlength="160" placeholder="Neue Aufgabe" required=""/><div class="line"><select aria-label="Aufgabenbereich" class="field" id="task-area" style="max-width:180px"><option>Business</option><option>Projekte</option><option>Privat</option><option>Kirche &amp; Gemeinde</option><option>Allgemein</option></select><select class="field" id="task-priority" style="max-width:175px"><option value="normal">Normal</option><option value="high">Wichtig</option><option value="low">Später</option></select><input class="field" id="task-due" style="max-width:180px" type="date"/><button class="btn primary" type="submit">Hinzufügen</button></div></form><div class="line section"><button class="chip" data-filter="all">Alle</button><button class="chip" data-filter="open">Offen</button><button class="chip" data-filter="done">Erledigt</button></div><div id="task-list"></div></div></details><details class="panel"><summary><span><strong>☾ Agenten &amp; Nachtaufträge</strong><small>Fortschritt · Wiederaufnahme · Kostenbudget</small></span></summary><div class="inner muted">Geplant: Aufträge in Teilaufgaben zerlegen, Zwischenergebnisse speichern, nach Unterbrechung fortsetzen und vor externen Aktionen Freigaben einholen.</div></details><details class="panel"><summary><span><strong>Freigaben</strong><small>Vor echten Aktionen ist deine Zustimmung nötig</small></span></summary><div class="inner"><button class="btn" id="approval-demo">Demo-Freigabe erzeugen</button><div class="note">Keine Aktion wird wirklich ausgeführt.</div><div id="tasks-approvals"></div></div></details></div></section>
@@ -101,6 +102,7 @@ function show(id) {
   if (!SECTIONS.some(s => s[0] === id)) return;
 
   current = id;
+  if (id === 'orders') refreshAgentJobs();
 
   // Beim Seitenwechsel alle Unterbereiche einklappen.
   document.querySelectorAll(".page details.panel").forEach(panel => {
@@ -564,6 +566,44 @@ function orderSteps(goal){
  ]).map(title=>({id:newId(),title,done:false}));
 }
 function orderStatus(o){return o.steps.length&&o.steps.every(s=>s.done)?'Abgeschlossen':o.steps.some(s=>s.done)?'In Bearbeitung':'Geplant'}
+function renderAgentJobs(jobs){
+ const root=$('#agent-jobs-list');root.replaceChildren();
+ if(!jobs.length){root.append(el('p','muted','Keine Cloud-Aufträge vorhanden.'));return}
+ jobs.forEach(job=>{
+  const card=el('div','order-box');
+  const status=el('span','pill',job.status||'unbekannt');
+  card.append(status,el('h3',null,job.title||'Auftrag'),el('p','muted',job.instruction||''));
+  if(job.result){const result=el('div','muted',job.result);result.style.whiteSpace='pre-wrap';card.append(result);if(job.status==='completed')card.append(el('p','note','KI-Bericht ohne bereitgestellte Webquellen; nicht als aktuelle Recherche verifiziert.'))}
+  if(job.error)card.append(el('p','bad','Fehler: '+job.error));
+  if(job.status==='open'){
+   const run=el('button','btn primary','Bericht erstellen');
+   run.onclick=async()=>{
+    run.disabled=true;$('#agent-jobs-status').textContent='Auftrag wird ausgeführt …';
+    let feedback;
+    try{
+     const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id})});
+     const data=await response.json().catch(()=>({}));
+     if(!response.ok||data.success!==true)throw new Error(data.error||'Auftrag konnte nicht ausgeführt werden.');
+     feedback='Bericht wurde gespeichert.';
+    }catch(error){feedback='Ausführung fehlgeschlagen: '+error.message}
+    await refreshAgentJobs(feedback);
+   };
+   card.append(run);
+  }
+  root.append(card);
+ });
+}
+async function refreshAgentJobs(feedback='Cloud-Aufträge geladen.'){
+ const status=$('#agent-jobs-status');status.textContent='Cloud-Aufträge werden geladen …';
+ try{
+  const response=await fetch('/api/agent-jobs',{headers:{'Accept':'application/json'}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||data.success!==true)throw new Error(data.error||'Aufträge konnten nicht geladen werden.');
+  renderAgentJobs(Array.isArray(data.jobs)?data.jobs:[]);
+  status.textContent=feedback;
+ }catch(error){$('#agent-jobs-list').replaceChildren();status.textContent='Cloud-Aufträge nicht verfügbar: '+error.message}
+}
+$('#agent-jobs-refresh').onclick=()=>refreshAgentJobs();
 function renderOrders(){
  const root=$('#order-list');root.replaceChildren();
  if(!db.orders.length){root.append(el('p','muted','Noch keine Aufträge. Lege oben deinen ersten Arbeitsplan an.'));return}

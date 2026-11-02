@@ -124,7 +124,9 @@ export async function onRequestPost({ request, env }) {
             "Bearer " + env.JARVIS_BACKEND_API_KEY
         },
         body: JSON.stringify({
-          toolId: "reports",
+          // The backend router accepts `tool`, not the executor's
+          // internal parameter name `toolId`.
+          tool: "reports",
           args: {
             instruction: job.instruction
           }
@@ -149,9 +151,7 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
-    const report =
-      data.result?.report ??
-      data.result?.result?.report;
+    const report = data.result?.report;
 
     if (typeof report !== "string" || !report.trim()) {
       throw new Error("No report returned");
@@ -178,7 +178,10 @@ export async function onRequestPost({ request, env }) {
       status: "completed",
       tool: "reports",
       result: report,
-      sourceBased: false
+      sourceBased: data.result?.sourceBased === true,
+      sourceUrls: Array.isArray(data.result?.sourceUrls)
+        ? data.result.sourceUrls
+        : []
     });
 
   } catch (error) {
