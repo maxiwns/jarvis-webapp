@@ -10,6 +10,7 @@
 
 const BACKEND_URL =
   "https://jarvis-backend.maxiwiens.workers.dev";
+const REPORT_TIMEOUT_SECONDS = 90;
 
 function reply(data, status = 200) {
   return Response.json(data, {
@@ -103,13 +104,6 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "Job not found" }, 404);
   }
 
-  if (job.status !== "open") {
-    return reply({
-      error: "Job is not open",
-      status: job.status
-    }, 409);
-  }
-
   if (
     typeof job.instruction !== "string" ||
     !job.instruction.trim() ||
@@ -126,12 +120,16 @@ export async function onRequestPost({ request, env }) {
     if (!states.running || !states.completed || !states.failed) {
       return reply({ error: "Der Auftragsablauf passt nicht zu den Statuswerten in D1: " + states.allowed }, 500);
     }
+    const expectedStatus = body.retry === true ? states.failed : "open";
+    if (job.status !== expectedStatus) {
+      return reply({ error: "Der Auftragsstatus hat sich geändert.", status: job.status }, 409);
+    }
     const claim = await env.DB.prepare(
       `UPDATE agent_jobs
-       SET status = ?,
+       SET status = ?, error = '',
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND status = 'open'`
-    ).bind(states.running, jobId).run();
+       WHERE id = ? AND status = ?`
+    ).bind(states.running, jobId, expectedStatus).run();
 
     if (claim.meta?.changes !== 1) {
       return reply({
@@ -164,7 +162,7 @@ export async function onRequestPost({ request, env }) {
             instruction: job.instruction
           }
         }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(REPORT_TIMEOUT_SECONDS * 1000)
       }
     );
 
@@ -220,7 +218,7 @@ export async function onRequestPost({ request, env }) {
   } catch (error) {
     const message =
       error?.name === "TimeoutError"
-        ? "Execution timed out"
+        ? `Das Berichtswerkzeug hat innerhalb von ${REPORT_TIMEOUT_SECONDS} Sekunden keinen vollständigen Bericht geliefert.`
         : (error?.message || "Execution failed");
 
     console.error(
@@ -248,6 +246,6 @@ export async function onRequestPost({ request, env }) {
       jobId,
       status: states.failed,
       error: message
-    }, 502);
+    }, error?.name === "TimeoutError" ? 504 : 502);
   }
 }

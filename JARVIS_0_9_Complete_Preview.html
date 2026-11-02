@@ -575,13 +575,14 @@ function renderAgentJobs(jobs){
   card.append(status,el('h3',null,job.title||'Auftrag'),el('p','muted',job.instruction||''));
   if(job.result){const result=el('div','muted',job.result);result.style.whiteSpace='pre-wrap';card.append(result);if(['completed','done'].includes(job.status))card.append(el('p','note','KI-Bericht ohne bereitgestellte Webquellen; nicht als aktuelle Recherche verifiziert.'))}
   if(job.error)card.append(el('p','bad','Fehler: '+job.error));
-  if(job.status==='open'){
-   const run=el('button','btn primary','Bericht erstellen');
+  const retry = ['failed','error'].includes(job.status);
+  if(job.status==='open' || retry){
+   const run=el('button','btn primary',retry ? 'Bericht erneut starten' : 'Bericht erstellen');
    run.onclick=async()=>{
-    run.disabled=true;$('#agent-jobs-status').textContent='Auftrag wird ausgeführt …';
+    run.disabled=true;$('#agent-jobs-status').textContent='Bericht wird erstellt. Lass die Seite bis zum Ergebnis geöffnet.';
     let feedback;
     try{
-     const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id})});
+     const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id,retry})});
      const data=await response.json().catch(()=>({}));
      if(!response.ok||data.success!==true)throw new Error(data.error||'Auftrag konnte nicht ausgeführt werden.');
      feedback='Bericht wurde gespeichert.';
