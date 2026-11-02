@@ -582,6 +582,7 @@
 
   search.addEventListener("input", renderMain);
   reload.addEventListener("click", loadLibrary);
+  window.addEventListener("jarvis:knowledge-saved", loadLibrary);
 
   loadLibrary();
 })();

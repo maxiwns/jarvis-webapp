@@ -11,6 +11,7 @@
  */
 
 import { expiredReportSql } from "../_lib/run-report.js";
+import { readReport } from "../_lib/report-data.js";
 
 function reply(data, status = 200) {
   return Response.json(data, {
@@ -49,7 +50,10 @@ export async function onRequestGet({ env }) {
 
     return reply({
       success: true,
-      jobs: result.results || []
+      jobs: (result.results || []).map(job => {
+        const report = readReport(job.result);
+        return {...job, result:report.text, sources:report.sources};
+      })
     });
 
   } catch (error) {

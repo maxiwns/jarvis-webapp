@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { onRequestPost as chat } from "../../functions/api/conversation-turn.js";
 import { onRequestPost as start } from "../../functions/api/agent-run.js";
 import { onRequestGet as list } from "../../functions/api/agent-jobs.js";
+import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
 import worker from "../../../backend/worker.js";
 
 function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse } = {}) {
@@ -13,6 +14,9 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
   db.exec(`CREATE TABLE chats(id PRIMARY KEY, updated_at);
     CREATE TABLE messages(id PRIMARY KEY, chat_id, role, content);
     CREATE TABLE tasks(id PRIMARY KEY, title, area, priority, due, done, source);
+    CREATE TABLE brain_categories(id PRIMARY KEY, name, parent_id, unique(name,parent_id));
+    CREATE TABLE brain_entries(id PRIMARY KEY,title,content,summary,category_id,entry_type,
+      source_type,source_job_id,source_urls,tags,verification_status,created_at DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE agent_jobs(id PRIMARY KEY, title, instruction, status TEXT CHECK
       (status IN ('open','in_progress','done','error')), result, error TEXT NOT NULL DEFAULT '',
       source, created_at DEFAULT CURRENT_TIMESTAMP, updated_at DEFAULT CURRENT_TIMESTAMP, completed_at);`);
@@ -49,6 +53,10 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     return worker.fetch(new Request(url,opts),{JARVIS_API_KEY:"local", AI:{async run(model,input) {
       if (path === "/api/intent") return {response:JSON.stringify({action,title:"Checklisten"})};
       if (path === "/api/tool-plan") return {response:JSON.stringify({tools})};
+      if (path === "/api/brain-categorize") return {response:JSON.stringify({
+        title:"Gespeicherter Bericht",category:"Wissen",subcategory:"Recherche",summary:"Zusammenfassung des Berichts",tags:["Recherche"]
+      })};
+      if (path === "/api/brain-compare") return {response:'{"matches":[]}'};
       return {response: report ? await report(input) : "Checklisten machen Abläufe wiederholbar."};
     }}});
   });
@@ -58,6 +66,7 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
   return {db, paths, toolCalls, turn:(message="Erstelle einen Bericht über Checklisten.") => post(chat,"/api/conversation-turn",{
     chatId,turnId,message}).then(r=>r.json()),
     start:(retry=false)=>post(start,"/api/agent-run",{jobId:turnId,retry}),
+    save:(body={jobId:turnId})=>post(saveKnowledge,"/api/brain-save",body),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
 
@@ -82,9 +91,51 @@ test("Wikipedia-Recherche nutzt gelesene Auszüge und speichert nur deren Artike
   const [job]=await f.list();
   assert.equal(job.status,"done");
   assert.match(job.result,/oldid=41[\s\S]*oldid=42/);
+  assert.deepEqual(job.sources.map(s=>s.title),["Artikel A","Artikel B"]);
+  assert.deepEqual(job.sources.map(s=>s.url),f.toolCalls[0].args.sourceUrls);
   assert.doesNotMatch(job.result,/oldid=43/);
   assert.match(f.toolCalls[0].args.sourceText,/Auszug A[\s\S]*Auszug B/);
   assert.deepEqual(f.paths,["/api/intent","/w/api.php","/api/tool-execute"]);
+});
+
+test("Bericht ins Wissen übernehmen: serverseitiger Inhalt, Quellen, Kategorie und Doppelklick",async t=>{
+  const f=fixture(t,{wikiResponse:()=>Response.json({query:{pages:[
+    {ns:0,index:1,lastrevid:41,title:"Kreislaufwirtschaft",extract:"Gelesener Auszug"}
+  ]}})});
+  await f.turn("Erstelle einen Wikipedia-Bericht über Kreislaufwirtschaft.");
+  const responses=await Promise.all([f.save({jobId:f.turnId,content:"Fremdtext"}), f.save()]);
+  const receipts=await Promise.all(responses.map(r=>r.json()));
+  assert.ok(receipts.every(r=>r.saved===true),JSON.stringify(receipts));
+  assert.equal(receipts[0].entryId,receipts[1].entryId);
+  assert.deepEqual(receipts.map(r=>r.duplicate).sort(),[false,true]);
+  const [job]=await f.list();
+  const [entry]=f.db.prepare("SELECT * FROM brain_entries").all();
+  assert.equal(entry.source_job_id,job.id);
+  assert.equal(entry.content,job.result);
+  assert.deepEqual(JSON.parse(entry.source_urls),job.sources.map(s=>s.url));
+  assert.equal(entry.verification_status,"unverified");
+  assert.equal(f.db.prepare("SELECT name FROM brain_categories WHERE id=?").get(entry.category_id).name,"Recherche");
+});
+
+test("Altberichte bleiben lesbar; beliebige Text-URLs werden nicht als Quellen importiert",async t=>{
+  const f=fixture(t);
+  f.db.prepare("INSERT INTO agent_jobs(id,title,status,result) VALUES(?,?,?,?)")
+    .run(f.turnId,"Alter Bericht","done","Bericht mit https://example.org/");
+  assert.deepEqual((await f.list())[0].sources,[]);
+  assert.equal((await f.save()).status,200);
+  assert.equal(f.db.prepare("SELECT source_urls FROM brain_entries").get().source_urls,"[]");
+});
+
+test("Offener Auftrag wird nicht als Wissen gespeichert",async t=>{
+  const f=fixture(t,{tools:[]}); await f.turn();
+  assert.equal((await f.save()).status,409);
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM brain_entries").get().n,0);
+});
+
+test("Manuelle Wissensnotiz bleibt ohne Auftragsverknüpfung speicherbar",async t=>{
+  const f=fixture(t);const receipt=await (await f.save({title:"Notiz",content:"Eine persönliche Wissensnotiz."})).json();
+  assert.equal(receipt.saved,true);
+  assert.equal(f.db.prepare("SELECT source_job_id FROM brain_entries").get().source_job_id,null);
 });
 for (const [label,reply] of [["leer",()=>Response.json({})],["Rate Limit",()=>new Response(null,{status:429})]]) {
   test("Wikipedia "+label+" erzeugt keinen unbelegten Bericht",async t=>{

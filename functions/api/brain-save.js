@@ -9,6 +9,8 @@
  * Authentifizierung über functions/_middleware.js
  */
 
+import { readReport } from "../_lib/report-data.js";
+
 const BACKEND =
   "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -288,13 +290,31 @@ export async function onRequestPost(context) {
     }, 400);
   }
 
-  const content = body?.content;
-  const title = body?.title || "";
+  const jobId = body?.jobId ?? null;
+  let content = body?.content;
+  let title = body?.title || "";
+  let urls = [];
+  if (jobId !== null) {
+    if (origin !== expectedOrigin) return reply({error:"Forbidden"},403);
+    if (typeof jobId !== "string" || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(jobId)) {
+      return reply({error:"Ungültige Auftrags-ID."},400);
+    }
+    try {
+      const job = await env.DB.prepare(
+        "SELECT title, result FROM agent_jobs WHERE id = ? AND status IN ('done','completed')"
+      ).bind(jobId).first();
+      if (!job) return reply({error:"Kein abgeschlossener Bericht gefunden."},409);
+      const report = readReport(job.result);
+      content = report.text;
+      title = job.title;
+      urls = report.sources.map(source => source.url);
+    } catch { return reply({error:"Bericht konnte nicht geladen werden."},503); }
+  }
 
   if (
     typeof content !== "string" ||
     !content.trim() ||
-    content.length > 12000 ||
+    (!jobId && content.length > 12000) ||
     typeof title !== "string" ||
     title.length > 200
   ) {
@@ -307,7 +327,9 @@ export async function onRequestPost(context) {
   try {
     // Erst nach einem identischen Inhalt suchen.
     // Wiederholte Tests erzeugen keine neuen Einträge.
-    const duplicate = await env.DB.prepare(
+    const findDuplicate = () => jobId ? env.DB.prepare(
+      "SELECT id, title, category_id FROM brain_entries WHERE source_job_id = ? LIMIT 1"
+    ).bind(jobId).first() : env.DB.prepare(
       `SELECT id, title, category_id
        FROM brain_entries
        WHERE content = ?
@@ -315,8 +337,7 @@ export async function onRequestPost(context) {
        LIMIT 1`
     ).bind(content.trim()).first();
 
-    if (duplicate) {
-      return reply({
+    const alreadySaved = duplicate => reply({
         success: true,
         saved: true,
         duplicate: true,
@@ -324,7 +345,8 @@ export async function onRequestPost(context) {
         title: duplicate.title,
         categoryId: duplicate.category_id
       });
-    }
+    const duplicate = await findDuplicate();
+    if (duplicate) return alreadySaved(duplicate);
     const existingCategories =
       await loadExistingCategories(env.DB);
     // KI-Kategorisierung über geschütztes Backend.
@@ -340,7 +362,7 @@ export async function onRequestPost(context) {
         
 body: JSON.stringify({
   title,
-  content: content.trim(),
+  content: content.trim().slice(0, 12000),
   existingCategories
 }),
 
@@ -479,7 +501,7 @@ if (relatedKnowledge.length > 0) {
 
     // Eintrag mit sicher gebundenen SQL-Parametern
     // im Second Brain speichern.
-    await env.DB.prepare(
+    const inserted = await env.DB.prepare(
       `INSERT INTO brain_entries (
          id,
          title,
@@ -488,11 +510,16 @@ if (relatedKnowledge.length > 0) {
          category_id,
          entry_type,
          source_type,
+         source_job_id,
          source_urls,
          tags,
          verification_status
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+       WHERE ? IS NULL OR (
+         EXISTS (SELECT 1 FROM agent_jobs WHERE id = ? AND status IN ('done','completed'))
+         AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = ?)
+       )`
     ).bind(
       id,
       ai.title.trim().slice(0, 200),
@@ -501,10 +528,16 @@ if (relatedKnowledge.length > 0) {
       categoryId,
       "knowledge",
       "agent",
-      "[]",
+      jobId,
+      JSON.stringify(urls),
       JSON.stringify(tags),
-      "unverified"
+      "unverified", jobId, jobId, jobId
     ).run();
+    if (inserted.meta?.changes !== 1) {
+      const existing = await findDuplicate();
+      if (existing) return alreadySaved(existing);
+      return reply({error:"Der Auftrag ist nicht mehr verfügbar."},409);
+    }
     
 /*
  * Erkannte Wissensbeziehungen dauerhaft speichern.

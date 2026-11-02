@@ -585,8 +585,43 @@ function renderAgentJobs(jobs){
    const result = el('div','muted',job.result);
    result.style.whiteSpace = 'pre-wrap';
    details.append(el('summary',null,'Berichtstext'),result);
+   if (job.sources?.length) {
+    const links = el('ul');
+    for (const source of job.sources) {
+     const link = el('a',null,source.title);
+     link.href = source.url;
+     link.target = '_blank';
+     link.rel = 'noopener noreferrer';
+     const item = el('li');
+     item.append(link);
+     links.append(item);
+    }
+    details.append(el('strong',null,'Originalquellen öffnen'),links);
+   }
    if (['completed','done'].includes(job.status)) {
     details.append(el('p','note','KI-Bericht. Bei einem Quellenbericht findest du die gelesenen Quellen und den Abrufzeitpunkt am Ende.'));
+   }
+   if (['completed','done'].includes(job.status)) {
+    const save = el('button','btn','Ins Second Brain übernehmen');
+    const feedback = el('p','note');
+    feedback.setAttribute('role','status');
+    save.onclick = async () => {
+     save.disabled = true;
+     feedback.textContent = 'Der Bericht wird eingeordnet …';
+     try {
+      const response = await fetch('/api/brain-save',{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id})
+      });
+      const data = await response.json();
+      if (!response.ok || data.saved !== true) throw new Error(data.error || 'Speichern fehlgeschlagen.');
+      feedback.textContent = (data.duplicate ? 'Bereits im Second Brain: ' : 'Im Second Brain gespeichert: ') + data.title;
+      window.dispatchEvent(new Event('jarvis:knowledge-saved'));
+     } catch (error) {
+      feedback.textContent = error.message;
+      save.disabled = false;
+     }
+    };
+    details.append(save,feedback);
    }
    card.append(details);
   }

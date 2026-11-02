@@ -1,4 +1,5 @@
 import { wikipediaTopic, searchWikipedia } from "./wikipedia.js";
+import { storeReport } from "./report-data.js";
 
 const BACKEND_URL =
   "https://jarvis-backend.maxiwiens.workers.dev";
@@ -130,11 +131,13 @@ export async function runReport(env, jobId, retry = false) {
     const topic = wikipediaTopic(job.instruction);
     const args = { instruction: job.instruction };
     let sourceNote = "";
+    let sources = [];
     if (topic) {
       const material = await searchWikipedia(topic);
       args.sourceText = material.sourceText;
       args.sourceUrls = material.sourceUrls;
       sourceNote = material.note;
+      sources = material.sources;
     } else if (pageUrl) {
       const page = await executeTool(env, "web_read", { url: pageUrl });
       if (page.success !== true || page.url !== pageUrl ||
@@ -144,6 +147,7 @@ export async function runReport(env, jobId, retry = false) {
       }
       args.sourceText = page.content.slice(0, 12000);
       args.sourceUrls = [page.url];
+      sources = [{title: page.title || page.url, url:page.url}];
       const partial = page.truncated || page.content.length > args.sourceText.length;
       sourceNote = "\n\nGelesene Quelle: " + page.url + "\nAbruf: " + page.fetchedAt +
         (partial ? "\nFür den Bericht wurde ein Seitenausschnitt verwendet." : "");
@@ -172,7 +176,7 @@ export async function runReport(env, jobId, retry = false) {
            updated_at = CURRENT_TIMESTAMP,
            completed_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = ? AND updated_at = ?`
-    ).bind(states.completed, report, jobId, states.running, startedAt).run();
+    ).bind(states.completed, storeReport(report, sources), jobId, states.running, startedAt).run();
 
     if (completed.meta?.changes !== 1) {
       throw new Error("Job completion could not be saved");

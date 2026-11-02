@@ -28,6 +28,7 @@ export async function searchWikipedia(topic) {
     }));
   if (!sources.length) throw new Error("Wikipedia hat keine lesbaren Artikeleinleitungen zu diesem Thema geliefert.");
   return {
+    sources: sources.map(({title,url}) => ({title,url})),
     sourceUrls: sources.map(s => s.url),
     sourceText: sources.map(s => s.title + "\n" + s.url + "\n" + s.text).join("\n\n"),
     note: "\n\nGelesene Quellen (Artikeleinleitungen der deutschsprachigen Wikipedia):\n" +
