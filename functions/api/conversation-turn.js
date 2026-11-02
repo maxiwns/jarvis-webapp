@@ -1,6 +1,6 @@
 
 /* JARVIS 0.9 – Chat, persönliche Aufgaben und JARVIS-Aufträge */
-import { runReport } from "../_lib/run-report.js";
+import { reportPage, runReport } from "../_lib/run-report.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -41,7 +41,10 @@ function isGeneralComparisonReport(instruction) {
 }
 
 async function planOrder(env, instruction) {
-  if (isGeneralComparisonReport(instruction)) return null;
+  if (isGeneralComparisonReport(instruction) || reportPage(instruction)) return null;
+  if (/https?:\/\//i.test(instruction)) {
+    return "Dein Auftrag bleibt offen. Für einen Bericht aus einer einzelnen Quelle schreibe bitte: Erstelle einen Bericht aus dieser Webseite: gefolgt von der HTTPS-Adresse.";
+  }
   const planningInput = [
     "Der Auftrag ist bereits gespeichert. Plane nur die noch nötigen Arbeitsschritte.",
     "Für einen allgemeinen Bericht aus Grundlagenwissen genügt reports. Plane zusätzliche Werkzeuge, wenn der Auftrag sie erfordert, etwa für aktuelle Zahlen, Originalquellen oder Versand.",
@@ -76,6 +79,7 @@ async function processOrder(env, jobId, instruction) {
   const response = await runReport(env, jobId);
   const result = await response.json();
   if (response.ok && result.success === true) {
+    if (result.sourceBased) return "Dein Bericht ist fertig. In der Auftragszentrale findest du den Text, die gelesene Webseite und den Abrufzeitpunkt.";
     return "Dein Bericht ist fertig und in der Auftragszentrale gespeichert. Er wurde ohne Webrecherche erstellt.";
   }
   return "Dein Auftrag ist gespeichert. Der automatische Lauf konnte keinen neuen Abschluss bestätigen. Den aktuellen Stand findest du in der Auftragszentrale.";

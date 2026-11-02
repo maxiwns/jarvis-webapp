@@ -1,6 +1,33 @@
 const BACKEND_URL =
   "https://jarvis-backend.maxiwiens.workers.dev";
 const REPORT_TIMEOUT_SECONDS = 90;
+
+// Only this explicit single-page request starts a read. The backend reader
+// enforces its HTTPS host allowlist and rejects credentials and redirects.
+export function reportPage(instruction) {
+  const match = /^(?:bitte\s+)?(?:erstelle?|schreibe?|verfasse?)\s+(?:mir\s+)?(?:bitte\s+)?einen\s+(?:kurzen\s+)?bericht\s+(?:aus|zu|über|anhand)\s+(?:(?:dieser?|folgender?|der)\s+)?(?:webseite|seite|quelle)\s*:\s*(https:\/\/[^\s<>]+)$/iu.exec(instruction.trim());
+  if (!match) return null;
+  try { return new URL(match[1]).href; } catch { return null; }
+}
+
+async function executeTool(env, tool, args) {
+  const response = await fetch(BACKEND_URL + "/api/tool-execute", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + env.JARVIS_BACKEND_API_KEY },
+    body: JSON.stringify({ tool, args }),
+    signal: AbortSignal.timeout((tool === "web_read" ? 20 : REPORT_TIMEOUT_SECONDS) * 1000)
+  });
+  if (!response.ok) {
+    throw new Error(tool === "web_read"
+      ? "Die Seite konnte nicht gelesen werden. Prüfe Adresse und freigegebene Domain."
+      : "Berichtswerkzeug meldet HTTP " + response.status);
+  }
+  const data = await response.json();
+  if (data.success !== true || data.executed !== true || data.tool !== tool || !data.result) {
+    throw new Error("Werkzeugausführung nicht bestätigt: " + tool);
+  }
+  return data.result;
+}
 // Allow time for the tool timeout and both D1 writes before offering recovery.
 export const expiredReportSql =
   "status IN ('running','processing','in_progress') AND datetime(updated_at) < datetime('now','-3 minutes')";
@@ -97,50 +124,33 @@ export async function runReport(env, jobId, retry = false) {
   }
 
   try {
-    // Erste sichere Agentenfähigkeit:
-    // Einen Bericht tatsächlich durch Workers AI erzeugen.
-    const response = await fetch(
-      BACKEND_URL + "/api/tool-execute",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization:
-            "Bearer " + env.JARVIS_BACKEND_API_KEY
-        },
-        body: JSON.stringify({
-          // The backend router accepts `tool`, not the executor's
-          // internal parameter name `toolId`.
-          tool: "reports",
-          args: {
-            instruction: job.instruction
-          }
-        }),
-        signal: AbortSignal.timeout(REPORT_TIMEOUT_SECONDS * 1000)
+    const pageUrl = reportPage(job.instruction);
+    const args = { instruction: job.instruction };
+    let sourceNote = "";
+    if (pageUrl) {
+      const page = await executeTool(env, "web_read", { url: pageUrl });
+      if (page.success !== true || page.url !== pageUrl ||
+          typeof page.content !== "string" || !page.content.trim() ||
+          !Number.isFinite(Date.parse(page.fetchedAt)) || typeof page.truncated !== "boolean") {
+        throw new Error("Kein bestätigter Seiteninhalt verfügbar.");
       }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        "Backend execution failed: HTTP " + response.status
-      );
+      args.sourceText = page.content.slice(0, 12000);
+      args.sourceUrls = [page.url];
+      const partial = page.truncated || page.content.length > args.sourceText.length;
+      sourceNote = "\n\nGelesene Quelle: " + page.url + "\nAbruf: " + page.fetchedAt +
+        (partial ? "\nFür den Bericht wurde ein Seitenausschnitt verwendet." : "");
+    } else if (/https?:\/\//i.test(job.instruction)) {
+      throw new Error("Für einen Quellenbericht bitte genau eine Seite angeben: Erstelle einen Bericht aus dieser Webseite: https://…");
     }
-
-    const data = await response.json();
-
-    if (data.success !== true || data.executed !== true || data.tool !== "reports") {
-      throw new Error(
-        typeof data.error === "string"
-          ? data.error.slice(0, 300)
-          : "Tool did not execute successfully"
-      );
+    const result = await executeTool(env, "reports", args);
+    if (pageUrl && (result.sourceBased !== true || result.sourceUrls?.length !== 1 ||
+        result.sourceUrls[0] !== pageUrl)) {
+      throw new Error("Verarbeitung der gelesenen Quelle nicht bestätigt.");
     }
-
-    const report = data.result?.report;
-
-    if (typeof report !== "string" || !report.trim() || report.length > 30000) {
-      throw new Error("No report returned");
+    if (typeof result.report !== "string" || !result.report.trim() || result.report.length > 30000) {
+      throw new Error("Kein gültiger Bericht zurückgegeben.");
     }
+    const report = result.report + sourceNote;
 
     // Fertiges Ergebnis dauerhaft sichern.
     const completed = await env.DB.prepare(
@@ -163,16 +173,14 @@ export async function runReport(env, jobId, retry = false) {
       status: states.completed,
       tool: "reports",
       result: report,
-      sourceBased: data.result?.sourceBased === true,
-      sourceUrls: Array.isArray(data.result?.sourceUrls)
-        ? data.result.sourceUrls
-        : []
+      sourceBased: Boolean(pageUrl),
+      sourceUrls: pageUrl ? [pageUrl] : []
     });
 
   } catch (error) {
     const message =
       error?.name === "TimeoutError"
-        ? `Das Berichtswerkzeug hat innerhalb von ${REPORT_TIMEOUT_SECONDS} Sekunden keinen vollständigen Bericht geliefert.`
+        ? "Die Zeit für den Werkzeugaufruf ist abgelaufen. Du kannst den Bericht erneut starten."
         : (error?.message || "Execution failed");
 
     console.error(
