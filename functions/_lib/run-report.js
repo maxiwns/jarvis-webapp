@@ -45,7 +45,7 @@ function reply(data, status = 200) {
 
 // Some installations restrict job states with a SQLite CHECK. Use the
 // names declared by that table for all three writes, including completion.
-async function jobStates(db) {
+export async function jobStates(db) {
   const row = await db.prepare(
     "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'agent_jobs'"
   ).first();

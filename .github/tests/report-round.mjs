@@ -8,6 +8,7 @@ import { onRequestGet as list } from "../../functions/api/agent-jobs.js";
 import { onRequestGet as getMessages } from "../../functions/api/messages.js";
 import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
 import { briefing } from "../../functions/_lib/briefing.js";
+import { tick } from "../../functions/_lib/background.js";
 import worker from "../../../backend/worker.js";
 
 function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse, tavily } = {}) {
@@ -98,6 +99,60 @@ test("Briefing per Chat speichert Antwort ohne KI-Aufruf und ohne Auftrag",async
   assert.equal(answer.action,"briefing");assert.equal(answer.model,null);
   assert.equal(f.db.prepare("SELECT content FROM messages WHERE role='assistant'").get().content,answer.reply);
   assert.equal((await f.list()).length,0);assert.deepEqual(f.paths,[]);
+});
+
+test("Nach Annahme erledigt der Timer den Bericht ohne weiteren Browserrequest",async t=>{
+  const f=fixture(t);
+  await tick(f.env);
+  const receipt=await f.turn("Erstelle einen kurzen Bericht über die Vor- und Nachteile von Checklisten.");
+  assert.match(receipt.reply,/schließen/);
+  assert.deepEqual(f.toolCalls,[]);
+  assert.equal((await f.list())[0].status,"open");
+  await Promise.all([tick(f.env),tick(f.env)]);
+  assert.equal(f.toolCalls.length,1);
+  assert.equal((await f.list())[0].status,"done");
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM report_queue").get().n,0);
+  assert.match((await (await f.messages()).json()).messages[1].content,/fertig/);
+});
+
+test("Timer übernimmt abgelaufene Reservierung und repariert verlorene Abschlussmeldung",async t=>{
+  const f=fixture(t);await tick(f.env);await f.turn();
+  f.db.exec("UPDATE report_queue SET attempts=1,lease='old',lease_until=datetime('now','-1 minute')");
+  f.db.exec("UPDATE agent_jobs SET status='in_progress',updated_at=datetime('now','-6 minutes')");
+  await tick(f.env);
+  assert.equal(f.toolCalls.length,1);
+  f.db.prepare("INSERT INTO report_queue(job_id,profile) VALUES(?,'standard')").run(f.turnId);
+  f.db.exec("UPDATE messages SET content='Wartend' WHERE role='assistant'");
+  await tick(f.env);
+  assert.equal(f.toolCalls.length,1);
+  assert.match((await (await f.messages()).json()).messages[1].content,/fertig/);
+});
+
+test("Kein Timerstart für einen nicht freigegebenen Plan",async t=>{
+  const f=fixture(t,{tools:["email","reports"]});await tick(f.env);
+  assert.match((await f.turn()).reply,/offen/);
+  await tick(f.env);
+  assert.equal((await f.list())[0].status,"open");
+  assert.equal(f.toolCalls.length,0);
+});
+
+test("Temporärer Backendausfall wird begrenzt ohne Browser erneut versucht",async t=>{
+  const f=fixture(t);
+  await tick(f.env);await f.turn();
+  const real=globalThis.fetch;
+  let fail=true;
+  // Replace only the tool response; planning and intent use the normal fixture.
+  t.mock.method(globalThis,"fetch",(url,opts)=>fail && new URL(url).pathname==="/api/tool-execute"
+    ? Promise.resolve(new Response(null,{status:503})) : real(url,opts));
+  await tick(f.env);
+  assert.equal((await f.list())[0].status,"error");
+  assert.equal(f.db.prepare("SELECT attempts FROM report_queue").get().attempts,1);
+  await tick(f.env);
+  assert.equal(f.db.prepare("SELECT attempts FROM report_queue").get().attempts,1);
+  f.db.exec("UPDATE report_queue SET lease_until=datetime('now','-1 second')");
+  fail=false;
+  await tick(f.env);
+  assert.equal((await f.list())[0].status,"done");
 });
 
 test("Autonome Webrecherche: Suche, Auswahl, Lesen, Bericht und belegte Links",async t=>{

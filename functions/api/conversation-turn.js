@@ -4,6 +4,7 @@ import { reportPage, runReport } from "../_lib/run-report.js";
 import { wikipediaTopic } from "../_lib/wikipedia.js";
 import { webTopic, githubTopic } from "../_lib/web-skills.js";
 import { briefing, briefingDays } from "../_lib/briefing.js";
+import {runnerOnline} from "../_lib/background.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -575,6 +576,13 @@ try {
   // Änderungen zusammen speichern. D1 batch führt die Statements
   // transaktional aus: Chat und Aktion werden gemeinsam geschrieben.
   const writes = [];
+  const background = jobId && await runnerOnline(env.DB);
+  let enqueue = false;
+  if (background) {
+    const blocked = await planOrder(env,currentMessage);
+    enqueue = !blocked;
+    answer = blocked || "Dein Bericht ist zur Hintergrundbearbeitung gespeichert. Du kannst den Chat jetzt schließen. Das Ergebnis erscheint hier und in der Auftragszentrale.";
+  }
 
   if (taskId !== null) {
     writes.push(env.DB.prepare(
@@ -590,6 +598,9 @@ try {
        (id, title, instruction, status, source)
        VALUES (?, ?, ?, 'open', 'chat')`
     ).bind(jobId, intent.title, currentMessage));
+    if (enqueue) writes.push(env.DB.prepare(
+      "INSERT INTO report_queue(job_id,profile) VALUES(?,?)"
+    ).bind(jobId, body.reportProfile || "standard"));
   }
 
   writes.push(
@@ -617,7 +628,7 @@ try {
     return reply({ error: "Action or conversation could not be saved" }, 500);
   }
 
-  if (jobId) {
+  if (jobId && !background) {
     try {
       const outcome = await processOrder(env, jobId, currentMessage, body.reportProfile);
       const updated = await env.DB.prepare(
