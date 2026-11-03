@@ -73,7 +73,7 @@
 .task-feedback{font-size:12px;color:#babcc2}
 </style><link rel="stylesheet" href="/jarvis-workspace.css"></head><body>
 <div class="shell"><aside><div class="brand"><span aria-hidden="true" class="core"></span><div><b>JARVIS</b><div class="tiny">WORKSPACE 0.9</div></div></div><nav aria-label="Hauptnavigation" id="sidebar"></nav><div class="side-end">Persönlicher Arbeitsbereich<br/>JARVIS 0.9</div></aside>
-<main><div class="top"><div><span aria-hidden="true" class="core mobile-core"></span><b class="eyebrow" id="page-label">ÜBERSICHT</b><div><small>Persönlicher Arbeitsbereich</small></div></div><div class="topright"><div class="model-header-group"><button class="chip" id="model-shortcut" title="KI-Modell verwalten">KI: Llama 3.1 ⌄</button><span id="active-model-label">Aktiv: Llama 3.1</span></div><button aria-controls="monitor" aria-expanded="false" class="chip" id="limit-button">◫ Limits</button></div><div class="monitor" hidden="" id="monitor"><div class="head"><strong>Ressourcenmonitor</strong><button aria-label="Schließen" class="btn quiet" id="limit-close">×</button></div><div id="quota-values" aria-live="polite"></div><button class="chip" id="quota-refresh" type="button">Aktualisieren</button></div></div>
+<main><div class="top"><div><span aria-hidden="true" class="core mobile-core"></span><b class="eyebrow" id="page-label">ÜBERSICHT</b><div><small>Persönlicher Arbeitsbereich</small></div></div><div class="topright"><div class="model-header-group"><button class="chip" id="model-shortcut" title="KI-Modell verwalten">Berichtsmodell ⌄</button><span id="active-model-label">Aktiv: Llama 3.1</span></div><button aria-controls="monitor" aria-expanded="false" class="chip" id="limit-button">◫ Limits</button></div><div class="monitor" hidden="" id="monitor"><div class="head"><strong>Ressourcenmonitor</strong><button aria-label="Schließen" class="btn quiet" id="limit-close">×</button></div><div id="quota-values" aria-live="polite"></div><button class="chip" id="quota-refresh" type="button">Aktualisieren</button></div></div>
 <section class="page" id="dashboard"><div class="hero"><div class="eyebrow">PERSONAL AI CONTROL CENTER</div><h1 id="greeting">Guten Tag.</h1><p>Deine wichtigsten Aufgaben auf einen Blick. Alles Weitere ist einklappbar.</p></div><div class="grid"><div class="stat"><small>Offene Aufgaben</small><b id="count-tasks">0</b><small>Cloud und lokale Aufgaben</small></div><div class="stat"><small>Notizen</small><b id="count-notes">0</b><small>Second Brain</small></div><div class="stat"><small>Freigaben</small><b id="count-approvals">0</b><small>Nur Demo-Freigaben</small></div><div class="stat"><small>Aufträge</small><b id="count-orders">0</b><small>Lokale Arbeitspläne</small></div></div><div class="stack"><div class="line"><button class="btn quiet" data-page="orders">Auftragszentrale öffnen</button><button class="btn quiet" data-page="brain">Second Brain öffnen</button><button class="btn quiet" data-page="approvals">Freigaben ansehen</button></div><details class="panel" id="brief-panel"><summary><span><strong>☼ Morning Briefing</strong><small>Erstes Öffnen am Morgen · jederzeit aufklappbar</small></span></summary><div class="inner"><b id="brief-date"></b><p class="muted">Dein Überblick aus den lokal angelegten Aufgaben:</p><div id="brief-content"></div><p class="note">Keine Verbindung zu Kalender, Nachrichten oder externen Quellen.</p><button class="btn" id="brief-dismiss">Für heute schließen</button></div></details><div class="two"><details class="panel" open=""><summary><span><strong>✦ Schnellauftrag</strong><small>Direkt als Aufgabe vormerken</small></span></summary><div class="inner"><textarea class="field" id="quick-input" maxlength="500" placeholder="Was soll JARVIS erledigen?" rows="3"></textarea><div class="line section"><button class="btn primary" id="quick-add">Als Aufgabe speichern</button><span class="note" id="quick-hint">Als Einzelaufgabe speichern · für Arbeitspläne die Auftragszentrale öffnen.</span></div></div></details><details class="panel"><summary><span><strong>☷ Offene Aufgaben</strong><small>Zusammengeklappt, bis du sie brauchst</small></span></summary><div class="inner"><div id="dash-task-list"></div><button class="btn" data-page="tasks">Alle Aufgaben</button></div></details></div><details class="panel"><summary><span><strong>◎ Aktivitäten</strong><small>Änderungen in dieser lokalen Vorschau</small></span></summary><div class="inner" id="dash-activity"></div></details></div></section>
 <section class="page" hidden="" id="chat"><div class="hero"><div class="eyebrow">KOMMANDOZENTRALE</div><h1>KI-Chat</h1><p>Vorbereiteter Chatbereich für das vorhandene Cloudflare-Backend und spätere Modelle.</p></div><details class="panel" open=""><summary><span><strong>Chat &amp; Aufträge</strong><small>Aktuell lokale Planung · keine KI-Verbindung</small></span></summary><div class="inner"><textarea class="field" id="chat-input" placeholder="JARVIS, plane bitte ..." rows="5"></textarea><div class="line section"><button class="btn primary" id="chat-to-task">Als Aufgabe speichern</button><span class="note" id="chat-hint">Es wird nichts an eine KI gesendet.</span></div><p class="note">Wir verbinden den Chat erst nach serverseitiger Sitzungsprüfung. Deine API-Schlüssel gehören niemals ins Frontend.</p></div></details></section>
 <section class="page" hidden="" id="orders">
@@ -714,15 +714,9 @@ function renderApprovals(){renderApprovalList($('#approval-list'));renderApprova
 function renderActivity(){for(const target of [$('#activity-list'),$('#dash-activity')]){target.replaceChildren();let items=target.id==='dash-activity'?db.events.slice(0,4):db.events;if(!items.length){target.append(el('p','muted','Noch keine Aktivitäten.'));continue}items.forEach(v=>{let row=el('div','item');let box=el('div','grow',v.message);box.append(el('small',null,formatEvent(v.time)));row.append(box);target.append(row)})}}
 let today=new Date().toLocaleDateString('sv-SE');let h=new Date().getHours();$('#greeting').textContent=h>=5&&h<11?'Guten Morgen.':h>=11&&h<18?'Guten Tag.':'Guten Abend.';$('#brief-date').textContent=new Date().toLocaleDateString('de-DE',{dateStyle:'full'});const BRIEF_KEY='jarvis09_workspace_brief';function renderBrief(){let t=$('#brief-content');t.replaceChildren();let open=db.tasks.filter(x=>!x.done);let important=open.filter(x=>x.priority==='high');let overdue=open.filter(x=>x.due&&x.due<today);let dueToday=open.filter(x=>x.due===today);[`${open.length} offene Aufgaben`,`${important.length} wichtige Aufgaben`,`${dueToday.length} heute fällig`,`${overdue.length} überfällig`].forEach(x=>t.append(el('p','muted','• '+x)));let suggested=important[0]||dueToday[0]||open[0];t.append(el('p',null,suggested?'Vorschlag: '+suggested.title:'Keine offenen Aufgaben.'));}
 try{if(h>=5&&h<12&&localStorage.getItem(BRIEF_KEY)!==today)$('#brief-panel').open=true}catch{}$('#brief-dismiss').onclick=()=>{try{localStorage.setItem(BRIEF_KEY,today)}catch{}$('#brief-panel').open=false};$('#brief-reopen').onclick=()=>{$('#brief-panel').open=true;show('dashboard')};
-const modelNames={llama:'Llama 3.1',auto:'Automatisch (später)',gpt:'OpenAI GPT (später)',claude:'Claude (später)',local:'Lokale KI (später)'};$$('input[name="model"]').forEach(r=>r.onchange=()=>{try{localStorage.setItem('jarvis09_model_choice',r.value)}catch{};$('#model-message').textContent=r.value==='llama'?'Das echte Backend bleibt Llama 3.1.':'Nur vorgemerkte Designauswahl. Kein Providerwechsel und keine Kosten.';$('#model-caption').textContent='Vorgemerkt: '+modelNames[r.value]+' · aktiv: Llama 3.1';$('#model-shortcut').textContent =
-  r.value === 'auto'
-    ? 'KI: Automatisch ⌄'
-    : 'KI: Llama 3.1 ⌄';
+const modelNames={llama:'Llama 3.1',auto:'Automatisch (später)',gpt:'OpenAI GPT (später)',claude:'Claude (später)',local:'Lokale KI (später)'};$$('input[name="model"]').forEach(r=>r.onchange=()=>{try{localStorage.setItem('jarvis09_model_choice',r.value)}catch{};$('#model-message').textContent=r.value==='llama'?'Das echte Backend bleibt Llama 3.1.':'Nur vorgemerkte Designauswahl. Kein Providerwechsel und keine Kosten.';$('#model-caption').textContent='Vorgemerkt: '+modelNames[r.value]+' · aktiv: Llama 3.1';
 });try{const savedChoice=localStorage.getItem('jarvis09_model_choice');
-if(savedChoice&&modelNames[savedChoice]){const radio=$$('input[name="model"]').find(r=>r.value===savedChoice);if(radio){radio.checked=true;$('#model-shortcut').textContent =
-  savedChoice === 'auto'
-    ? 'KI: Automatisch ⌄'
-    : 'KI: Llama 3.1 ⌄';$('#model-caption').textContent='Vorgemerkt: '+modelNames[savedChoice]+' · aktiv: Llama 3.1';}}}catch{}
+if(savedChoice&&modelNames[savedChoice]){const radio=$$('input[name="model"]').find(r=>r.value===savedChoice);if(radio){radio.checked=true;$('#model-caption').textContent='Vorgemerkt: '+modelNames[savedChoice]+' · aktiv: Llama 3.1';}}}catch{}
 
 // JARVIS 0.9 – KI-Auswahl direkt in der Kopfzeile
 // Aktives Modell nur im Automatikmodus anzeigen
@@ -740,7 +734,7 @@ function updateActiveModelLabel() {
   label.hidden = selected !== "auto";
 
   // Aktuell ist ausschließlich Llama 3.1 angebunden.
-  label.textContent = "Aktiv: Llama 3.1";
+  label.textContent = "Chat: Llama 3.1";
 }
 
 document.querySelectorAll(
@@ -790,126 +784,28 @@ function closeModelMenu() {
 }
 
 function renderModelMenu() {
-  modelMenu.replaceChildren();
-
-  const heading = el("div", "eyebrow", "KI-MODELL AUSWÄHLEN");
-  heading.style.marginBottom = "10px";
-  modelMenu.append(heading);
-
-  const models = [
-    {
-      id: "llama",
-      name: "Llama 3.1",
-      info: "Aktives Cloudflare-Backend"
-    },
-    {
-      id: "auto",
-      name: "Automatisch",
-      info: "Derzeit ebenfalls Llama 3.1"
-    },
-    {
-      id: "gpt",
-      name: "OpenAI GPT",
-      info: "Noch nicht verbunden",
-      locked: true
-    },
-    {
-      id: "claude",
-      name: "Claude",
-      info: "Noch nicht verbunden",
-      locked: true
-    },
-    {
-      id: "local",
-      name: "Lokale KI",
-      info: "Später mit Mac mini",
-      locked: true
-    }
-  ];
-
-  const selected =
-    document.querySelector('input[name="model"]:checked')
-      ?.value || "llama";
-
-  models.forEach(model => {
-    const button = el("button");
+  modelMenu.replaceChildren(el("strong",null,"Modell für Berichte"));
+  const select = document.getElementById("report-profile-select");
+  if (!select) {modelMenu.append(el("p","note","Modellauswahl wird geladen …"));return}
+  for (const option of select.options) {
+    const button = el("button","btn",option.text + (option.disabled || select.disabled ? " · nicht freigeschaltet" : option.selected ? " ✓" : ""));
     button.type = "button";
-    button.disabled = !!model.locked;
-
-    Object.assign(button.style, {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "10px",
-      width: "100%",
-      padding: "11px",
-      marginBottom: "5px",
-      borderRadius: "9px",
-      border: selected === model.id
-        ? "1px solid #77787d"
-        : "1px solid #414247",
-      background: selected === model.id
-        ? "#34353a"
-        : "#292a2e",
-      color: "#f1f1f2",
-      textAlign: "left"
-    });
-
-    const details = el("span");
-    details.style.flex = "1";
-
-    const name = el("strong", null, model.name);
-    name.style.display = "block";
-
-    const info = el("small", null, model.info);
-    info.style.display = "block";
-    info.style.color = "#aaaab0";
-
-    details.append(name, info);
-
-    const indicator = el(
-      "span",
-      null,
-      model.locked
-        ? "🔒"
-        : selected === model.id
-          ? "✓"
-          : ""
-    );
-
-    button.append(details, indicator);
-
-    if (!model.locked) {
-      button.onclick = () => {
-        const radio = document.querySelector(
-          'input[name="model"][value="' + model.id + '"]'
-        );
-
-        if (radio) {
-          radio.checked = true;
-          radio.dispatchEvent(
-            new Event("change", { bubbles: true })
-          );
-        }
-
-        closeModelMenu();
-      };
-    }
-
+    button.style.cssText = "display:block;width:100%;text-align:left;margin-top:6px";
+    button.disabled = select.disabled || option.disabled;
+    button.onclick = () => {
+      select.value = option.value;
+      select.dispatchEvent(new Event("change"));
+      closeModelMenu();
+    };
     modelMenu.append(button);
-  });
-
-  const note = el(
-    "p",
-    "note",
-    "Aktives Backend: Llama 3.1. " +
-    "Keine kostenpflichtigen Modelle aktiviert."
-  );
-
-  note.style.margin = "10px 2px 0";
-  modelMenu.append(note);
+  }
+  modelMenu.append(el("p","note","Gilt für neue Berichte. Das normale Chatmodell wird separat verwaltet."));
 }
-
+window.addEventListener("jarvis:report-model",()=>{
+  const option = document.getElementById("report-profile-select")?.selectedOptions[0];
+  if (option) modelTrigger.textContent = "Berichte: " + option.text.split(" · ")[0] + " ⌄";
+  if (!modelMenu.hidden) renderModelMenu();
+});
 modelTrigger.onclick = event => {
   event.stopPropagation();
 

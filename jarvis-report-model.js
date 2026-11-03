@@ -6,6 +6,7 @@
   panel.innerHTML = '<summary><strong>Berichtsmodell</strong></summary><div class="inner"><label>Modell für neue Berichte <select class="field"></select></label><p class="note" role="status"></p></div>';
   anchor.after(panel);
   const select = panel.querySelector("select");
+  select.id = "report-profile-select";
   const note = panel.querySelector("p");
   const names = {standard:"Llama 3.1 8B · Cloudflare",quality:"Llama 3.3 70B · Cloudflare",groq:"GPT-OSS 120B · Groq"};
   let selected = "standard";
