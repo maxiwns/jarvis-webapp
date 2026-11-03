@@ -727,6 +727,31 @@
             : "jcm-assistant"),
           message.content
         );
+        if (message.job_id) {
+          const labels = {open:"Offen",running:"In Arbeit",processing:"In Arbeit",in_progress:"In Arbeit",
+            failed:"Fehlgeschlagen",error:"Fehlgeschlagen",completed:"Abgeschlossen",done:"Abgeschlossen"};
+          const state = node("p","jcm-note","Auftrag: " + (message.job_expired === 1 ? "Unterbrochen" :
+            labels[message.job_status] || message.job_status));
+          bubble.append(state);
+          if (message.job_error) bubble.append(node("div","bad",message.job_error));
+          if (["failed","error"].includes(message.job_status) || message.job_expired === 1) {
+            const retry = node("button","chip","Bericht erneut starten");
+            retry.onclick = async () => {
+              if (busy || activeId !== id) return;
+              setBusy(true); retry.disabled = true;
+              state.textContent = "Wiederholung läuft …";
+              let feedback;
+              try {
+                const result = await api("/api/agent-run",{method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({jobId:message.job_id,retry:true,reportProfile:window.jarvisReportProfile?.() || "standard"})});
+                feedback = result.success ? "Bericht gespeichert." : "Abschluss nicht bestätigt.";
+              } catch (error) { feedback = error.message; }
+              finally { setBusy(false); }
+              if (activeId === id) { await openChat(id); setStatus(feedback); }
+            };
+            bubble.append(retry);
+          }
+        }
         if (message.report_id) {
           const button = node("button","chip jr-open","Bericht öffnen");
           button.setAttribute("aria-pressed","false");

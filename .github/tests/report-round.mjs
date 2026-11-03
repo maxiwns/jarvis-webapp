@@ -138,6 +138,20 @@ test("Berichtsleser verbindet den gespeicherten Bericht nur mit seinem Gespräch
   assert.equal((await (await f.messages()).json()).messages[1].report_id,null);
 });
 
+test("Fehlerstatus und Wiederholung bleiben im Ursprungschat demselben Auftrag zugeordnet",async t=>{
+  let attempts=0;
+  const f=fixture(t,{report:()=>++attempts===1?"":"Neuer Bericht"});
+  await f.turn();
+  const rows=async()=> (await (await f.messages()).json()).messages;
+  const [,failed]=await rows();
+  assert.equal(failed.job_id,f.turnId);assert.equal(failed.job_status,"error");
+  assert.ok(failed.job_error);assert.equal(failed.report_id,null);
+  assert.equal((await f.start(true)).status,200);
+  const [user,done]=await rows();
+  assert.equal(user.job_id,null);assert.equal(done.job_id,failed.job_id);
+  assert.equal(done.report_id,f.turnId);assert.equal(done.job_status,"done");
+});
+
 test("Allgemeiner Vergleichsbericht verwendet den festen Berichtsplan", async t => {
   const f = fixture(t,{tools:["jobs","reports"]});
   const result = await f.turn("Erstelle einen kurzen Bericht über die Vor- und Nachteile von Checklisten.");

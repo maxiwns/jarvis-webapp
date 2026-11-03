@@ -1,5 +1,6 @@
 
 // JARVIS 0.9 – Nachrichten in Cloudflare D1
+import {expiredReportSql} from "../_lib/run-report.js";
 
 function respond(data, status = 200) {
   return Response.json(data, {
@@ -29,11 +30,13 @@ export async function onRequestGet({ request, env }) {
     }
 
     const result = await env.DB.prepare(
-      `SELECT m.id, m.chat_id, m.role, m.content, m.created_at, j.id AS report_id, j.title AS report_title
+      `SELECT m.id, m.chat_id, m.role, m.content, m.created_at,
+         CASE WHEN j.status IN ('done','completed') AND length(j.result)>0 THEN j.id END AS report_id,
+         j.title AS report_title, j.id AS job_id, j.status AS job_status, j.error AS job_error, j.expired AS job_expired
        FROM (SELECT *, rowid AS sequence FROM messages WHERE chat_id = ?
          ORDER BY created_at DESC, rowid DESC LIMIT 200) m
-       LEFT JOIN agent_jobs j ON m.role = 'assistant' AND j.id = m.id
-         AND j.status IN ('done','completed') AND length(j.result) > 0
+       LEFT JOIN (SELECT id,title,status,result,error,(${expiredReportSql}) AS expired FROM agent_jobs) j
+         ON m.role = 'assistant' AND j.id = m.id
        ORDER BY m.created_at, m.sequence`
     ).bind(chatId).all();
 
