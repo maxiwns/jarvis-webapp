@@ -158,6 +158,15 @@ export async function runReport(env, jobId, retry = false, profile = "standard")
       throw new Error("Für einen Quellenbericht bitte genau eine Seite angeben: Erstelle einen Bericht aus dieser Webseite: https://…");
     }
     const result = await executeTool(env, "reports", args);
+    if (profile === "groq" && result.quota?.measuredAt) {
+      try {
+        await env.DB.prepare("CREATE TABLE IF NOT EXISTS report_quota (profile TEXT PRIMARY KEY, measured_at TEXT NOT NULL, snapshot TEXT NOT NULL)").run();
+        await env.DB.prepare(`INSERT INTO report_quota VALUES ('groq',?,?)
+          ON CONFLICT(profile) DO UPDATE SET measured_at=excluded.measured_at,snapshot=excluded.snapshot
+          WHERE excluded.measured_at >= report_quota.measured_at`)
+          .bind(result.quota.measuredAt,JSON.stringify(result.quota)).run();
+      } catch { console.error("Groq quota snapshot unavailable"); }
+    }
     if (profile !== "standard" && !result.model) throw new Error("Dieser Worker unterstützt die Modellauswahl noch nicht.");
     if (args.sourceUrls && (result.sourceBased !== true || !Array.isArray(result.sourceUrls) ||
         result.sourceUrls.length !== args.sourceUrls.length ||

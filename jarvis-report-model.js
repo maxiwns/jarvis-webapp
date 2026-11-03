@@ -14,6 +14,7 @@
   for (const [id,label] of Object.entries(names)) select.add(new Option(label,id));
   select.disabled = true;
   const describe = () => {
+    window.dispatchEvent(new Event("jarvis:report-model"));
     note.textContent = selected === "groq" ? "Auftrag und Quellenmaterial werden für neue Berichte an Groq gesendet. Bei einem Anfragelimit übernimmt Cloudflare." :
       "Ausgegraute Modelle sind auf dem verbundenen Worker noch nicht freigeschaltet.";
   };
