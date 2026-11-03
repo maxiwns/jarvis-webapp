@@ -9,7 +9,7 @@ import { onRequestGet as getMessages } from "../../functions/api/messages.js";
 import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
 import worker from "../../../backend/worker.js";
 
-function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse } = {}) {
+function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse, tavily } = {}) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
   db.exec(`CREATE TABLE chats(id PRIMARY KEY, updated_at);
@@ -34,10 +34,12 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     catch (e) { db.exec("ROLLBACK"); throw e; }
   }}};
   const paths = [];
+  if (tavily) Object.assign(env,{JARVIS_TAVILY_FREE:"yes",TAVILY_API_KEY:"fixture"});
   const toolCalls = [];
   t.mock.method(globalThis,"fetch",async (url,opts) => {
     const path = new URL(url).pathname;
     paths.push(path);
+    if (new URL(url).origin==="https://api.tavily.com") return Response.json({results:tavily(path,JSON.parse(opts.body))});
     if (new URL(url).origin === "https://de.wikipedia.org") {
       assert.equal(path,"/w/api.php");
       assert.equal(url.searchParams.get("gsrsearch"),"Kreislaufwirtschaft");
@@ -72,6 +74,31 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     document:(id=chatId)=>list({env,request:new Request("https://local/api/agent-jobs?jobId="+turnId+"&chatId="+id)}),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
+
+test("Autonome Webrecherche: Suche, Auswahl, Lesen, Bericht und belegte Links",async t=>{
+  const f=fixture(t,{tavily:(path,body)=>{
+    if(path==="/search")return [{url:"https://127.0.0.1/"},{url:"https://www.iana.org/domains",title:"Domains"},
+      {url:"https://www.iana.org/other"},{url:"https://www.example.net/info",title:"Info"}];
+    assert.deepEqual(body.urls,["https://www.iana.org/domains","https://www.example.net/info"]);
+    return [{url:body.urls[0],raw_content:"Der gelesene Inhalt."},{url:"https://foreign.net/",raw_content:"Nicht ausgewählt"}];
+  }});
+  const result=await f.turn("Recherchiere im Web zu Internetdomains.");
+  assert.match(result.reply,/abgeschlossen/);
+  const [job]=await f.list();
+  assert.deepEqual(job.sources.map(s=>s.url),["https://www.iana.org/domains"]);
+  assert.match(f.toolCalls[0].args.sourceText,/gelesene Inhalt/);
+  assert.deepEqual(f.paths,["/api/intent","/search","/extract","/api/tool-execute"]);
+});
+test("Webrecherche ohne Free-Anbindung gibt den Auftrag nicht als erledigt aus",async t=>{
+  const f=fixture(t);
+  assert.match((await f.turn("Webrecherche: Internetdomains")).reply,/bleibt offen/);
+  assert.deepEqual(f.paths,["/api/intent"]);
+});
+test("Treffer ohne Seitentext erzeugen keinen Bericht",async t=>{
+  const f=fixture(t,{tavily:path=>path==="/search"?[{url:"https://www.iana.org/"}]:[]});
+  await f.turn("Webrecherche: Internetdomains");
+  assert.equal((await f.list())[0].status,"error");assert.equal(f.toolCalls.length,0);
+});
 
 test("Berichtsleser verbindet den gespeicherten Bericht nur mit seinem Gespräch",async t=>{
   const f=fixture(t);

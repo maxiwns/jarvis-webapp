@@ -1,5 +1,6 @@
 import { wikipediaTopic, searchWikipedia } from "./wikipedia.js";
 import { storeReport } from "./report-data.js";
+import { researchWeb, webTopic, githubTopic, researchGithub } from "./web-skills.js";
 
 const BACKEND_URL =
   "https://jarvis-backend.maxiwiens.workers.dev";
@@ -130,11 +131,16 @@ export async function runReport(env, jobId, retry = false, profile = "standard")
   try {
     const pageUrl = reportPage(job.instruction);
     const topic = wikipediaTopic(job.instruction);
+    const search = webTopic(job.instruction);
+    const github = githubTopic(job.instruction);
+    const otherPage = env.JARVIS_TAVILY_FREE === "yes" && env.TAVILY_API_KEY && pageUrl &&
+      !["developers.cloudflare.com","www.cloudflare.com","docs.github.com"].includes(new URL(pageUrl).hostname);
     const args = { instruction: job.instruction, reportProfile:profile };
     let sourceNote = "";
     let sources = [];
-    if (topic) {
-      const material = await searchWikipedia(topic);
+    if (topic || github || search || otherPage) {
+      const material = topic ? await searchWikipedia(topic) : github ? await researchGithub(github) :
+        await researchWeb(env,{topic:search,url:pageUrl});
       args.sourceText = material.sourceText;
       args.sourceUrls = material.sourceUrls;
       sourceNote = material.note;

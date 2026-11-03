@@ -2,6 +2,7 @@
 /* JARVIS 0.9 – Chat, persönliche Aufgaben und JARVIS-Aufträge */
 import { reportPage, runReport } from "../_lib/run-report.js";
 import { wikipediaTopic } from "../_lib/wikipedia.js";
+import { webTopic, githubTopic } from "../_lib/web-skills.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -42,7 +43,10 @@ function isGeneralComparisonReport(instruction) {
 }
 
 async function planOrder(env, instruction) {
-  if (isGeneralComparisonReport(instruction) || reportPage(instruction) || wikipediaTopic(instruction)) return null;
+  if (webTopic(instruction) && (env.JARVIS_TAVILY_FREE !== "yes" || !env.TAVILY_API_KEY)) {
+    return "Dein Auftrag bleibt offen. Für die allgemeine Websuche muss Tavily Free in dieser Testumgebung verbunden sein.";
+  }
+  if (isGeneralComparisonReport(instruction) || reportPage(instruction) || wikipediaTopic(instruction) || webTopic(instruction) || githubTopic(instruction)) return null;
   if (/wikipedia[- ]bericht/iu.test(instruction)) return "Dein Auftrag bleibt offen. Für die Wikipedia-Suche schreibe bitte „Erstelle einen Wikipedia-Bericht über …“ mit einem einzelnen Suchthema.";
   if (/https?:\/\//i.test(instruction)) {
     return "Dein Auftrag bleibt offen. Für einen Bericht aus einer einzelnen Quelle schreibe bitte: Erstelle einen Bericht aus dieser Webseite: gefolgt von der HTTPS-Adresse.";
@@ -81,6 +85,8 @@ async function processOrder(env, jobId, instruction, profile) {
   const response = await runReport(env, jobId, false, profile);
   const result = await response.json();
   if (response.ok && result.success === true) {
+    if (githubTopic(instruction)) return "Die GitHub-Recherche ist abgeschlossen. Die gelesenen Projektdokumentationen stehen im Bericht.";
+    if (webTopic(instruction)) return "Die Webrecherche ist abgeschlossen. Den Bericht mit den gelesenen Quellen findest du in der Auftragszentrale.";
     if (wikipediaTopic(instruction)) return "Dein Wikipedia-Bericht ist fertig. Den Bericht mit den gelesenen Artikeln findest du in der Auftragszentrale.";
     if (result.sourceBased) return "Dein Bericht ist fertig. In der Auftragszentrale findest du den Text, die gelesene Webseite und den Abrufzeitpunkt.";
     return "Dein Bericht ist fertig und in der Auftragszentrale gespeichert. Er wurde ohne Webrecherche erstellt.";
