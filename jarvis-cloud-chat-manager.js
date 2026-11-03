@@ -287,7 +287,7 @@
   const microphone = node("button", "jcm-tool-button");
   microphone.type = "button";
   microphone.disabled = true;
-  microphone.title = "Spracheingabe – später verfügbar";
+  microphone.title = "Dieser Browser bietet hier keine Spracheingabe an.";
   microphone.setAttribute("aria-label", "Spracheingabe");
 
   microphone.innerHTML = `
@@ -368,6 +368,66 @@
   let activeId = null;
   let busy = false;
   let selectionVersion = 0;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let dictation = null;
+  let dictationAllowed = false;
+  function cancelDictation() {
+    if (!dictation) return;
+    const session = dictation;
+    dictation = null;
+    session.abort();
+    microphone.setAttribute("aria-pressed","false");
+    microphone.title = "Nachricht diktieren";
+  }
+  if (Recognition && window.isSecureContext) {
+    microphone.title = "Nachricht diktieren";
+    microphone.setAttribute("aria-pressed","false");
+    microphone.onclick = () => {
+      if (dictation) { dictation.stop(); return; }
+      if (!activeId || busy) return;
+      if (!dictationAllowed && !window.confirm("Deutsch diktieren? Je nach Browser wird deine Sprache vom Anbieter verarbeitet. Der erkannte Text erscheint als Entwurf im Chat.")) return;
+      dictationAllowed = true;
+      const session = new Recognition();
+      session.lang = "de-DE";
+      session.continuous = false;
+      session.interimResults = false;
+      const chatId = activeId;
+      dictation = session;
+      session.onresult = event => {
+        if (dictation !== session || activeId !== chatId || busy || page.hidden) return;
+        const words = Array.from(event.results).slice(event.resultIndex)
+          .filter(item=>item.isFinal).map(item=>item[0].transcript.trim()).join(" ");
+        if (!words) return;
+        const draft = [input.value.trimEnd(),words].filter(Boolean).join(" ");
+        if (draft.length > input.maxLength) { setStatus("Das Diktat passt nicht mehr in die Nachricht."); return; }
+        input.value = draft;
+        resizeComposerInput();
+        setStatus("Diktat eingefügt. Prüfe den Text vor dem Senden.");
+      };
+      session.onerror = event => {
+        if (dictation === session) setStatus(event.error === "not-allowed" ?
+          "Mikrofonzugriff wurde nicht erlaubt." : "Diktat unterbrochen. Du kannst weiter tippen.");
+      };
+      session.onend = () => {
+        if (dictation !== session) return;
+        dictation = null;
+        microphone.setAttribute("aria-pressed","false");
+        microphone.title = "Nachricht diktieren";
+        if (status.textContent === "JARVIS hört zu …") setStatus("Diktat beendet.");
+      };
+      try {
+        session.start();
+        microphone.title = "Diktat beenden";
+        microphone.setAttribute("aria-pressed","true");
+        setStatus("JARVIS hört zu …");
+      } catch {
+        dictation = null;
+        setStatus("Die Spracheingabe konnte nicht gestartet werden.");
+      }
+    };
+    window.addEventListener("pagehide",cancelDictation);
+    document.addEventListener("visibilitychange",()=>{ if (document.hidden) cancelDictation(); });
+  }
 
   const SIDEBAR_WIDTH_KEY = "jarvis_conversation_width";
   let sidebarWidth = 380;
@@ -448,7 +508,9 @@
   }
 
   function setBusy(value) {
+    if (value) cancelDictation();
     busy = value;
+    microphone.disabled = !Recognition || !window.isSecureContext || value || !activeId;
     create.disabled = value;
     send.disabled = value || !activeId;
     reload.disabled = value;
@@ -632,6 +694,7 @@
 
   async function openChat(id) {
     if (busy) return;
+    cancelDictation();
 
     const version = ++selectionVersion;
     activeId = id;
@@ -700,6 +763,7 @@
     } finally {
       if (version === selectionVersion) {
         send.disabled = busy || !activeId;
+      microphone.disabled = !Recognition || !window.isSecureContext || busy || !activeId;
       }
     }
   }
@@ -1288,6 +1352,7 @@ if (task) {
     } else {
       reader.stop();
       toggleHistory(false);
+      cancelDictation();
       root.style.height = "";
       root.style.maxHeight = "";
     }

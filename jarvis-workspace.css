@@ -15,6 +15,7 @@
 #chat #jarvis-cloud-manager .jcm-composer {background:#202a32;border-color:#42515a}
 #chat #jarvis-cloud-manager textarea.jcm-composer-input {background:transparent}
 #chat #jarvis-cloud-manager .jcm-send-button {background:var(--jr-accent)}
+#chat #jarvis-cloud-manager .jcm-tool-button[aria-pressed=true] {background:#21505b;color:#bcf6ff}
 #chat #jarvis-cloud-manager .jcm-user {background:#263b46;border:1px solid #3b535f}
 #chat #jarvis-cloud-manager .jcm-assistant {background:#1d262d;border-color:#323f48}
 #chat .jr-bar {display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
