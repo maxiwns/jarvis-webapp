@@ -69,7 +69,8 @@ function startError(error) {
   return "D1 konnte den Auftrag nicht zur Bearbeitung reservieren.";
 }
 
-export async function runReport(env, jobId, retry = false) {
+export async function runReport(env, jobId, retry = false, profile = "standard") {
+  if (!["standard","quality","groq"].includes(profile)) return reply({error:"Unbekanntes Berichtsmodell."},400);
   // Auftrag laden.
   let job;
 
@@ -129,7 +130,7 @@ export async function runReport(env, jobId, retry = false) {
   try {
     const pageUrl = reportPage(job.instruction);
     const topic = wikipediaTopic(job.instruction);
-    const args = { instruction: job.instruction };
+    const args = { instruction: job.instruction, reportProfile:profile };
     let sourceNote = "";
     let sources = [];
     if (topic) {
@@ -157,6 +158,7 @@ export async function runReport(env, jobId, retry = false) {
       throw new Error("Für einen Quellenbericht bitte genau eine Seite angeben: Erstelle einen Bericht aus dieser Webseite: https://…");
     }
     const result = await executeTool(env, "reports", args);
+    if (profile !== "standard" && !result.model) throw new Error("Dieser Worker unterstützt die Modellauswahl noch nicht.");
     if (args.sourceUrls && (result.sourceBased !== true || !Array.isArray(result.sourceUrls) ||
         result.sourceUrls.length !== args.sourceUrls.length ||
         !args.sourceUrls.every((url, index) => result.sourceUrls[index] === url))) {
@@ -176,7 +178,7 @@ export async function runReport(env, jobId, retry = false) {
            updated_at = CURRENT_TIMESTAMP,
            completed_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = ? AND updated_at = ?`
-    ).bind(states.completed, storeReport(report, sources), jobId, states.running, startedAt).run();
+    ).bind(states.completed, storeReport(report, sources, result.model), jobId, states.running, startedAt).run();
 
     if (completed.meta?.changes !== 1) {
       throw new Error("Job completion could not be saved");

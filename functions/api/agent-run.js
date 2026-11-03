@@ -58,5 +58,5 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "Invalid jobId" }, 400);
   }
 
-  return runReport(env, jobId, body.retry === true);
+  return runReport(env, jobId, body.retry === true, body.reportProfile);
 }

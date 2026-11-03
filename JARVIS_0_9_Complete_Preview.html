@@ -634,7 +634,7 @@ function renderAgentJobs(jobs){
     run.disabled=true;$('#agent-jobs-status').textContent='Bericht wird erstellt. Lass die Seite bis zum Ergebnis geöffnet.';
     let feedback;
     try{
-     const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id,retry})});
+     const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id,retry,reportProfile:window.jarvisReportProfile?.() || "standard"})});
      const data=await response.json().catch(()=>({}));
      if(!response.ok||data.success!==true)throw new Error(data.error||'Auftrag konnte nicht ausgeführt werden.');
      feedback='Bericht wurde gespeichert.';
@@ -1104,6 +1104,7 @@ refreshCloudTasks();
 })();
 </script>
  
+<script src="/jarvis-report-model.js" defer></script>
 <script src="/jarvis-reader.js" defer></script>
 <script src="/jarvis-cloud-chat-manager.js" defer></script>
 <script src="/jarvis-brain-library.js" defer></script>

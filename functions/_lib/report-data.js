@@ -2,8 +2,8 @@
 // from the model output so that model-generated links are never promoted.
 const marker = "JARVIS-REPORT/1\n";
 
-export function storeReport(text, sources) {
-  return marker + JSON.stringify({text, sources});
+export function storeReport(text, sources, model) {
+  return marker + JSON.stringify({text, sources, model});
 }
 
 export function readReport(value) {
@@ -19,7 +19,7 @@ export function readReport(value) {
               ["de.wikipedia.org","developers.cloudflare.com","www.cloudflare.com","docs.github.com"].includes(url.hostname);
           } catch { return false; }
         });
-        return {text:record.text, sources};
+        return {text:record.text, sources, model:typeof record.model === "string" ? record.model : null};
       }
     } catch { /* Display an unrecognized record as stored. */ }
   }

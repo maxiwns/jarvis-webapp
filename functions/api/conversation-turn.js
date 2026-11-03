@@ -75,10 +75,10 @@ async function planOrder(env, instruction) {
   return null;
 }
 
-async function processOrder(env, jobId, instruction) {
+async function processOrder(env, jobId, instruction, profile) {
   const blocked = await planOrder(env, instruction);
   if (blocked) return blocked;
-  const response = await runReport(env, jobId);
+  const response = await runReport(env, jobId, false, profile);
   const result = await response.json();
   if (response.ok && result.success === true) {
     if (wikipediaTopic(instruction)) return "Dein Wikipedia-Bericht ist fertig. Den Bericht mit den gelesenen Artikeln findest du in der Auftragszentrale.";
@@ -606,7 +606,7 @@ try {
 
   if (jobId) {
     try {
-      const outcome = await processOrder(env, jobId, currentMessage);
+      const outcome = await processOrder(env, jobId, currentMessage, body.reportProfile);
       const updated = await env.DB.prepare(
         "UPDATE messages SET content = ? WHERE id = ? AND chat_id = ?"
       ).bind(outcome, assistantMessageId, chatId).run();

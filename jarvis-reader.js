@@ -114,6 +114,7 @@ window.createJarvisReader = function (panel, back, api) {
       if (ticket !== version) return;
       if (!data.success || typeof data.text !== "string") throw new Error("Bericht konnte nicht geladen werden.");
       report = {...data,jobId}; heading.textContent = data.title; body.textContent = data.text;
+      if (data.model) links.append(make("p","Erstellt mit " + data.model,"jr-info"));
       if (data.sources?.length) {
         links.append(make("h3","Originalquellen"));
         for (const source of data.sources) {

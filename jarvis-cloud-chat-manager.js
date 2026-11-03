@@ -1236,6 +1236,7 @@ if (task) {
             chatId,
             message,
             turnId: pendingTurn.id,
+            reportProfile: window.jarvisReportProfile?.() || "standard",
             model: selected
           })
         }
