@@ -7,6 +7,7 @@ import { onRequestPost as start } from "../../functions/api/agent-run.js";
 import { onRequestGet as list } from "../../functions/api/agent-jobs.js";
 import { onRequestGet as getMessages } from "../../functions/api/messages.js";
 import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
+import { briefing } from "../../functions/_lib/briefing.js";
 import worker from "../../../backend/worker.js";
 
 function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse, tavily } = {}) {
@@ -25,12 +26,12 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
   db.prepare("INSERT INTO chats(id) VALUES (?)").run(chatId);
   function statement(sql, args = []) {
     const q = db.prepare(sql);
-    return {bind: (...v) => statement(sql,v), first: () => q.get(...args),
+    return {read:/^\s*SELECT/i.test(sql),bind: (...v) => statement(sql,v), first: () => q.get(...args),
       all: () => ({results:q.all(...args)}), run: () => ({meta:q.run(...args)})};
   }
   const env = { JARVIS_BACKEND_API_KEY:"local", DB:{prepare:statement, batch(writes) {
     db.exec("BEGIN");
-    try { for (const w of writes) w.run(); db.exec("COMMIT"); }
+    try { const result=writes.map(w=>w.read?w.all():w.run()); db.exec("COMMIT"); return result; }
     catch (e) { db.exec("ROLLBACK"); throw e; }
   }}};
   const paths = [];
@@ -66,7 +67,7 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
   const post = (handler,path,body) => handler({env, request:new Request("https://local"+path,{
     method:"POST",headers:{Origin:"https://local","Content-Type":"application/json"},body:JSON.stringify(body)})});
   const turnId = crypto.randomUUID();
-  return {db, paths, toolCalls, turn:(message="Erstelle einen Bericht über Checklisten.") => post(chat,"/api/conversation-turn",{
+  return {db, env, paths, toolCalls, turn:(message="Erstelle einen Bericht über Checklisten.") => post(chat,"/api/conversation-turn",{
     chatId,turnId,message}).then(r=>r.json()),
     start:(retry=false)=>post(start,"/api/agent-run",{jobId:turnId,retry}),
     save:(body={jobId:turnId})=>post(saveKnowledge,"/api/brain-save",body),
@@ -74,6 +75,30 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     document:(id=chatId)=>list({env,request:new Request("https://local/api/agent-jobs?jobId="+turnId+"&chatId="+id)}),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
+
+test("Briefing berücksichtigt Berliner Mitternacht, drei Fälligkeitstage und echte Auftragsdaten",async t=>{
+  const f=fixture(t);
+  const add=f.db.prepare("INSERT INTO tasks(id,title,due,done,priority) VALUES(?,?,?,?,?)");
+  for(const [title,due,done] of [["Gestern","2026-03-28",0],["Heute","2026-03-29",0],["Dienstag","2026-03-31",0],
+    ["Zu spät im Zeitraum","2026-04-01",0],["Schon fertig","2026-03-29",1],["Wichtig",null,0]]) {
+    add.run(crypto.randomUUID(),title,due,done,"high");
+  }
+  f.db.prepare("INSERT INTO agent_jobs(id,title,status,completed_at) VALUES(?,?,?,?)").run("r","Neuer Bericht","done","2026-03-28 17:00:00");
+  f.db.prepare("INSERT INTO agent_jobs(id,title,status) VALUES(?,?,?)").run("e","Fehlgeschlagene Recherche","error");
+  const now=new Date("2026-03-28T23:10:00Z");
+  const report=await briefing(f.env.DB,3,now);
+  assert.equal(report.today,"2026-03-29");
+  for(const title of ["Gestern","Heute","Dienstag","Wichtig","Neuer Bericht","Fehlgeschlagene Recherche"]) assert.ok(report.text.includes(title));
+  assert.doesNotMatch(report.text,/Zu spät im Zeitraum|Schon fertig/);
+  assert.doesNotMatch((await briefing(f.env.DB,1,now)).text,/Dienstag/);
+});
+test("Briefing per Chat speichert Antwort ohne KI-Aufruf und ohne Auftrag",async t=>{
+  const f=fixture(t);
+  const answer=await f.turn("JARVIS, was steht heute an?");
+  assert.equal(answer.action,"briefing");assert.equal(answer.model,null);
+  assert.equal(f.db.prepare("SELECT content FROM messages WHERE role='assistant'").get().content,answer.reply);
+  assert.equal((await f.list()).length,0);assert.deepEqual(f.paths,[]);
+});
 
 test("Autonome Webrecherche: Suche, Auswahl, Lesen, Bericht und belegte Links",async t=>{
   const f=fixture(t,{tavily:(path,body)=>{

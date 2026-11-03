@@ -3,6 +3,7 @@
 import { reportPage, runReport } from "../_lib/run-report.js";
 import { wikipediaTopic } from "../_lib/wikipedia.js";
 import { webTopic, githubTopic } from "../_lib/web-skills.js";
+import { briefing, briefingDays } from "../_lib/briefing.js";
 
 const BACKEND_URL = "https://jarvis-backend.maxiwiens.workers.dev";
 
@@ -472,8 +473,11 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "Database unavailable" }, 503);
   }
 
+  const horizon = briefingDays(currentMessage);
   let intent;
-  try {
+  if (horizon) {
+    intent = {action:"briefing"};
+  } else try {
     const detected = await callAI(env, "/api/intent", {
       message: currentMessage
     });
@@ -494,7 +498,10 @@ export async function onRequestPost({ request, env }) {
   const assistantMessageId = intent.action === "create_order" && turnId ? turnId : crypto.randomUUID();
   let answerSource = "normal_chat"
 
-  if (intent.action === "create_task") {
+  if (intent.action === "briefing") {
+    try { answer = (await briefing(env.DB,horizon)).text; answerSource = "briefing"; }
+    catch { return reply({error:"Cloud-Briefing konnte nicht geladen werden."},503); }
+  } else if (intent.action === "create_task") {
     taskId = crypto.randomUUID();
     answer = "Erledigt. Ich habe „" + intent.title +
       "“ auf deine Aufgabenliste gesetzt." +
@@ -626,7 +633,7 @@ try {
     status: "success",
     saved: true,
     answerSource,
-    model: "llama-3.1",
+    model: horizon ? null : "llama-3.1",
     action: intent.action,
     taskId,
     jobId,

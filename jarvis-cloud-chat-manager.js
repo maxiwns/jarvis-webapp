@@ -1282,7 +1282,7 @@ if (task) {
       await openChat(chatId);
 
       setStatus(
-        "Nachricht gespeichert · Modell: " +
+        data.action === "briefing" ? "Briefing aus Cloud-Daten gespeichert." : "Nachricht gespeichert · Modell: " +
         (data.model || "nicht angegeben")
       );
 
