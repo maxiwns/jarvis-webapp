@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { onRequestPost as chat } from "../../functions/api/conversation-turn.js";
 import { onRequestPost as start } from "../../functions/api/agent-run.js";
 import { onRequestGet as list } from "../../functions/api/agent-jobs.js";
+import { onRequestDelete as deleteJob } from "../../functions/api/agent-jobs.js";
 import { onRequestGet as getMessages } from "../../functions/api/messages.js";
 import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.js";
 import { briefing } from "../../functions/_lib/briefing.js";
@@ -193,6 +194,64 @@ test("Manuelle Wiederaufnahme reserviert einen verwaisten Lauf neu",async t=>{
   await tick(f.env);
   assert.equal((await f.list())[0].status,"done");
   assert.equal(f.toolCalls.length,2);
+});
+
+test("Warteschlangenstatus bleibt in Chat und Auftragszentrale auch bei Timer-Ausfall sichtbar",async t=>{
+  const f=fixture(t);await tick(f.env);await f.turn();
+  assert.equal((await f.list())[0].queue.state,"queued");
+  assert.equal((await (await f.messages()).json()).messages[1].job_queue.state,"queued");
+  f.db.exec("UPDATE report_runner_health SET seen_at=datetime('now','-10 minutes')");
+  assert.equal((await f.list())[0].queue.state,"paused");
+  await tick(f.env);
+  assert.equal((await f.list())[0].queue,null);
+});
+
+test("Während automatischer Wiederholung schützt auch die API vor Löschen",async t=>{
+  const f=fixture(t);await tick(f.env);await f.turn();
+  f.db.exec("UPDATE agent_jobs SET status='error',error='Vorübergehender Fehler'");
+  f.db.exec("UPDATE report_queue SET attempts=1,lease_until=datetime('now','+2 minutes')");
+  const job=(await f.list())[0];
+  assert.equal(job.queue.state,"retry_wait");assert.equal(job.queue.attempts,1);
+  assert.ok(job.queue.nextAttemptAt);
+  assert.doesNotMatch((await briefing(f.env.DB,1)).text,/Aufträge mit Handlungsbedarf/);
+  const remove=()=>deleteJob({env:f.env,request:new Request(`https://local/api/agent-jobs?jobId=${f.turnId}&status=error`,{
+    method:"DELETE",headers:{Origin:"https://local"}})});
+  assert.equal((await remove()).status,409);
+  assert.equal((await f.list()).length,1);
+  f.db.exec("DELETE FROM report_queue");
+  assert.match((await briefing(f.env.DB,1)).text,/Aufträge mit Handlungsbedarf/);
+  assert.equal((await remove()).status,200);
+  assert.equal((await f.list()).length,0);
+});
+
+test("Ohne Timer-Tabellen bleiben Anzeige und Löschen fehlgeschlagener Testberichte möglich",async t=>{
+  const f=fixture(t,{report:()=>""});await f.turn();
+  assert.equal((await f.list())[0].queue,null);
+  assert.equal((await (await f.messages()).json()).messages[1].job_queue,null);
+  assert.equal((await deleteJob({env:f.env,request:new Request(`https://local/api/agent-jobs?jobId=${f.turnId}&status=error`,{
+    method:"DELETE",headers:{Origin:"https://local"}})})).status,200);
+});
+
+test("Ein fehlerhafter Warteschlangeneintrag blockiert andere Aufträge nicht",async t=>{
+  const f=fixture(t);await tick(f.env);await f.turn();
+  const second=crypto.randomUUID();
+  f.db.prepare("INSERT INTO agent_jobs(id,title,instruction,status) VALUES(?,?,?,'open')")
+    .run(second,"Zweiter Auftrag","Erstelle einen Bericht über Checklisten.");
+  f.db.prepare("INSERT INTO report_queue(job_id,profile,created_at) VALUES(?,'standard',datetime('now','+1 second'))").run(second);
+  const prepare=f.env.DB.prepare;
+  let interrupted=false;
+  f.env.DB.prepare=sql=>{
+    if (!interrupted && sql==="SELECT status,error FROM agent_jobs WHERE id=?") {
+      interrupted=true;throw new Error("Simulierter Datenbankabbruch");
+    }
+    return prepare(sql);
+  };
+  await assert.rejects(tick(f.env),/1 background job/);
+  assert.equal(f.db.prepare("SELECT status FROM agent_jobs WHERE id=?").get(second).status,"done");
+  assert.equal(f.db.prepare("SELECT attempts FROM report_queue WHERE job_id=?").get(f.turnId).attempts,1);
+  f.db.exec("UPDATE report_queue SET lease_until=datetime('now','-1 second')");
+  await tick(f.env);
+  assert.equal(f.db.prepare("SELECT status FROM agent_jobs WHERE id=?").get(f.turnId).status,"done");
 });
 
 test("Autonome Webrecherche: Suche, Auswahl, Lesen, Bericht und belegte Links",async t=>{

@@ -8,6 +8,11 @@ wird bei aktivem Timer ebenfalls atomar eingereiht. Mehrfachklicks behalten dens
 Warteschlangeneintrag. Bereits eingereihte Aufträge werden bei fehlendem Heartbeat
 nicht zusätzlich synchron gestartet. Die Oberfläche unterscheidet die Annahme zur
 Hintergrundbearbeitung vom fertigen Ergebnis.
+Chat und Auftragszentrale zeigen auch automatische Wiederholungen und einen
+ausgefallenen Timer an. Solange ein Warteschlangeneintrag existiert, ist Löschen
+serverseitig gesperrt. Ein Fehler beim Fortschreiben eines einzelnen Auftrags
+lässt die weiteren Aufträge desselben Ticks weiterlaufen; der Tick meldet danach
+den internen Fehler, und die bestehende Reservierung ermöglicht die Wiederaufnahme.
 
 1. Mit Wrangler im richtigen Cloudflare-Testkonto anmelden. Die ID der **bereits
    an die Pages-Testversion gebundenen** D1 über `wrangler d1 list` nachsehen.

@@ -730,11 +730,11 @@
         if (message.job_id) {
           const labels = {open:"Offen",running:"In Arbeit",processing:"In Arbeit",in_progress:"In Arbeit",
             failed:"Fehlgeschlagen",error:"Fehlgeschlagen",completed:"Abgeschlossen",done:"Abgeschlossen"};
-          const state = node("p","jcm-note","Auftrag: " + (message.job_expired === 1 ? "Unterbrochen" :
-            labels[message.job_status] || message.job_status));
+          const state = node("p","jcm-note","Auftrag: " + (message.job_queue?.label || (message.job_expired === 1 ? "Unterbrochen" :
+            labels[message.job_status] || message.job_status)));
           bubble.append(state);
           if (message.job_error) bubble.append(node("div","bad",message.job_error));
-          if (["failed","error"].includes(message.job_status) || message.job_expired === 1) {
+          if (!message.job_queue && (["failed","error"].includes(message.job_status) || message.job_expired === 1)) {
             const retry = node("button","chip","Bericht erneut starten");
             retry.onclick = async () => {
               if (busy || activeId !== id) return;

@@ -1,6 +1,7 @@
 
 // JARVIS 0.9 – Nachrichten in Cloudflare D1
 import {expiredReportSql} from "../_lib/run-report.js";
+import {queueStatuses} from "../_lib/queue-status.js";
 
 function respond(data, status = 200) {
   return Response.json(data, {
@@ -40,7 +41,8 @@ export async function onRequestGet({ request, env }) {
        ORDER BY m.created_at, m.sequence`
     ).bind(chatId).all();
 
-    return respond({ messages: result.results });
+    const queues=await queueStatuses(env.DB,result.results.map(m=>({id:m.job_id,status:m.job_status,expired:m.job_expired})));
+    return respond({ messages: result.results.map(m=>({...m,job_queue:queues.get(m.job_id) || null})) });
   } catch {
     return respond({ error: "Database query failed" }, 500);
   }

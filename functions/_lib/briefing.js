@@ -1,4 +1,5 @@
 import { expiredReportSql } from "./run-report.js";
+import {hasQueue} from "./queue-status.js";
 
 export function briefingDays(message) {
   const text = message.trim().replace(/^(?:hey\s+)?jarvis[,!:\s]+/i,"").replace(/[.!?]+$/,"").trim();
@@ -8,6 +9,8 @@ export function briefingDays(message) {
 }
 
 export async function briefing(db, days, now = new Date()) {
+  const pendingGuard=await hasQueue(db)
+    ? " AND NOT EXISTS(SELECT 1 FROM report_queue WHERE job_id=agent_jobs.id)" : "";
   const today = new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Berlin"}).format(now);
   const groups = [];
   function tasks(label,filter,params=[]) {
@@ -23,7 +26,7 @@ export async function briefing(db, days, now = new Date()) {
   }
   tasks("Wichtig ohne Termin","priority='high' AND coalesce(due,'')=''");
   groups.push({label:"Aufträge mit Handlungsbedarf",stmt:db.prepare(
-    `SELECT title,status FROM agent_jobs WHERE status IN ('failed','error') OR (${expiredReportSql})
+    `SELECT title,status FROM agent_jobs WHERE (status IN ('failed','error') OR (${expiredReportSql}))${pendingGuard}
      ORDER BY updated_at DESC,id LIMIT 6`)});
   groups.push({label:"Berichte der letzten 24 Stunden",stmt:db.prepare(
     `SELECT title,status FROM agent_jobs WHERE status IN ('completed','done')

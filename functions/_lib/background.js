@@ -58,7 +58,14 @@ export async function tick(env) {
     WHERE (q.lease_until IS NULL OR q.lease_until<=CURRENT_TIMESTAMP)
       AND (j.id IS NULL OR j.status NOT IN ('running','in_progress','processing') OR (${expiredReportSql}))
     ORDER BY q.created_at,q.job_id LIMIT 3`).all();
-  for (const row of rows.results) await advance(env,row);
+  let failures=0;
+  for (const row of rows.results) {
+    try { await advance(env,row); }
+    catch { failures++; }
+  }
+  // Preserve each failed job's lease for recovery, but don't let one broken
+  // entry prevent other accepted jobs from advancing during this tick.
+  if (failures) throw new Error(`${failures} background job(s) could not advance`);
 }
 
 async function advance(env,{job_id:id,profile}) {

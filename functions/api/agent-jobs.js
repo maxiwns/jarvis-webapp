@@ -12,6 +12,7 @@
 
 import { expiredReportSql } from "../_lib/run-report.js";
 import { readReport } from "../_lib/report-data.js";
+import { hasQueue, queueStatuses } from "../_lib/queue-status.js";
 
 function reply(data, status = 200) {
   return Response.json(data, {
@@ -57,11 +58,12 @@ export async function onRequestGet({ env, request }) {
        LIMIT 100`
     ).all();
 
+    const queues = await queueStatuses(env.DB, result.results || []);
     return reply({
       success: true,
       jobs: (result.results || []).map(job => {
         const report = readReport(job.result);
-        return {...job, result:report.text, sources:report.sources};
+        return {...job, result:report.text, sources:report.sources, queue:queues.get(job.id) || null};
       })
     });
 
@@ -94,12 +96,14 @@ export async function onRequestDelete({ request, env }) {
   }
 
   try {
+    const queueGuard = await hasQueue(env.DB)
+      ? " AND NOT EXISTS (SELECT 1 FROM report_queue WHERE job_id = agent_jobs.id)" : "";
     const deletion = await env.DB.prepare(
       `DELETE FROM agent_jobs WHERE id = ? AND status = ?
-       AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = agent_jobs.id)`
+       AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = agent_jobs.id)${queueGuard}`
     ).bind(id, status).run();
     if (deletion.meta?.changes !== 1) {
-      return reply({ error: "Der Eintrag wurde geändert, bereits gelöscht oder dient als Quelle im Second Brain." }, 409);
+      return reply({ error: "Der Eintrag wird noch im Hintergrund bearbeitet, wurde geändert, bereits gelöscht oder dient als Quelle im Second Brain." }, 409);
     }
     return reply({ success: true });
   } catch {

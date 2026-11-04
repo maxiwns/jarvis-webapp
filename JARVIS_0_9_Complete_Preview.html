@@ -576,7 +576,7 @@ function renderAgentJobs(jobs){
  if(!jobs.length){root.append(el('p','muted','Keine Cloud-Aufträge vorhanden.'));return}
  jobs.forEach(job=>{
   const card=el('div','order-box');
-  const status=el('span','pill',job.status||'unbekannt');
+  const status=el('span','pill',job.queue?.label || job.status||'unbekannt');
   card.append(status,el('h3',null,job.title||'Auftrag'),el('p','muted',job.instruction||''));
   if (job.result) {
    const details = el('details','report-text');
@@ -628,7 +628,7 @@ function renderAgentJobs(jobs){
   if(job.error)card.append(el('p','bad','Fehler: '+job.error));
   const failed = ['failed','error'].includes(job.status);
   const retry = failed || job.expired === 1;
-  if(job.status==='open' || retry){
+  if(!job.queue && (job.status==='open' || retry)){
    const run=el('button','btn primary',retry ? 'Bericht erneut starten' : 'Bericht erstellen');
    run.onclick=async()=>{
     run.disabled=true;$('#agent-jobs-status').textContent='Bericht wird erstellt. Lass die Seite bis zum Ergebnis geöffnet.';
@@ -643,7 +643,7 @@ function renderAgentJobs(jobs){
    };
    card.append(run);
   }
-  if (failed || ['completed','done'].includes(job.status)) {
+  if (!job.queue && (failed || ['completed','done'].includes(job.status))) {
    const remove = el('button','btn quiet','Bericht löschen');
    remove.onclick = async () => {
     if (!window.confirm('„' + job.title + '“ mit Auftrag und Ergebnis endgültig löschen?')) return;

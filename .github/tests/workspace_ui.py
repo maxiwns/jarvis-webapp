@@ -70,7 +70,25 @@ with sync_playwright() as pw:
         if width <= 1000:
             page.get_by_role("button", name="← Gespräch").click()
             expect(page.locator(".jcm-composer-input")).to_be_visible()
+        queue = {"state": "retry_wait", "label": "Vorübergehender Fehler · automatische Wiederholung wartet", "attempts": 1}
+        page.route("**/api/messages?*", lambda route: route.fulfill(content_type="application/json", body=json.dumps({"messages": [
+            {"role": "assistant", "content": "Bericht angenommen.", "job_id": "r1", "job_status": "error",
+             "job_error": "Vorübergehender Fehler", "job_queue": queue}
+        ]})))
+        page.get_by_role("button", name="Gespräche", exact=True).click()
+        page.locator("#jr-history").get_by_role("button", name="Recherche", exact=True).click()
+        expect(page.locator(".jcm-note").filter(has_text=queue["label"])).to_be_visible()
+        expect(page.get_by_role("button", name="Bericht erneut starten", exact=True)).to_have_count(0)
+        page.route("**/api/agent-jobs", lambda route: route.fulfill(content_type="application/json", body=json.dumps({
+            "success": True, "jobs": [{"id": "r1", "title": TITLE, "status": "error", "queue": queue}]
+        })))
+        nav.get_by_role("button", name="Auftragszentrale" if width > 880 else "Aufträge").click()
+        if not page.locator("#agent-jobs-refresh").is_visible():
+            page.locator("details").filter(has=page.locator("#agent-jobs-refresh")).locator("summary").click()
+        page.locator("#agent-jobs-refresh").click()
+        expect(page.locator("#agent-jobs-list .pill")).to_have_text(queue["label"])
+        expect(page.locator("#agent-jobs-list button")).to_have_count(0)
         assert not errors, errors
-        print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe und Layout")
+        print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe, Warteschlange und Layout")
         page.close()
     browser.close()
