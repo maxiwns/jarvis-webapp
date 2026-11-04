@@ -9,6 +9,7 @@
  */
 
 import { runReport } from '../_lib/run-report.js';
+import { queueReport } from '../_lib/background.js';
 
 function reply(data, status = 200) {
   return Response.json(data, {
@@ -58,5 +59,11 @@ export async function onRequestPost({ request, env }) {
     return reply({ error: "Invalid jobId" }, 400);
   }
 
-  return runReport(env, jobId, body.retry === true, body.reportProfile);
+  try {
+    const queued = await queueReport(env, jobId, body.retry === true, body.reportProfile);
+    if (queued) return queued;
+    return runReport(env, jobId, body.retry === true, body.reportProfile);
+  } catch {
+    return reply({ error: "Die Auftragsbearbeitung konnte nicht sicher gestartet werden." }, 503);
+  }
 }

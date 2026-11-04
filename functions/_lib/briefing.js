@@ -32,7 +32,9 @@ export async function briefing(db, days, now = new Date()) {
   const results = await db.batch(groups.map(g=>g.stmt));
   const sections = groups.map(({label},index)=>{
     const rows=results[index].results;
-    return {label,items:rows.slice(0,5).map(row=>row.title + (row.due && row.due < today ? " · "+row.due : "")),
+    return {label,items:rows.slice(0,5).map(row=>row.title + (row.due && row.due < today ? " · "+row.due : "") +
+      (["failed","error"].includes(row.status) ? " · Fehlgeschlagen – Fehler im Auftrag ansehen und bei Bedarf erneut starten." :
+        ["running","processing","in_progress"].includes(row.status) ? " · Seit längerer Zeit ohne Abschluss – Status im Auftrag prüfen." : "")),
       more:rows.length>5};
   });
   const visible = sections.filter(group=>group.items.length);

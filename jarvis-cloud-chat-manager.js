@@ -744,7 +744,7 @@
               try {
                 const result = await api("/api/agent-run",{method:"POST",headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({jobId:message.job_id,retry:true,reportProfile:window.jarvisReportProfile?.() || "standard"})});
-                feedback = result.success ? "Bericht gespeichert." : "Abschluss nicht bestätigt.";
+                feedback = result.queued ? result.message : result.success ? "Bericht gespeichert." : "Abschluss nicht bestätigt.";
               } catch (error) { feedback = error.message; }
               finally { setBusy(false); }
               if (activeId === id) { await openChat(id); setStatus(feedback); }

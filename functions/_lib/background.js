@@ -10,6 +10,40 @@ export async function runnerOnline(db) {
   } catch { return false; }
 }
 
+// null preserves synchronous operation until the timer is activated. Existing
+// queue entries must never be bypassed, even when its heartbeat has expired.
+export async function queueReport(env, id, retry = false, profile = "standard") {
+  const response = (data,status=202) => Response.json(data,{status,headers:{"Cache-Control":"no-store"}});
+  if (!["standard","quality","groq"].includes(profile)) return response({error:"Unbekanntes Berichtsmodell."},400);
+  const db=env.DB;
+  const table=await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='report_queue'").first();
+  const receipt=()=>response({success:true,queued:true,jobId:id,message:"Dein Bericht ist zur Hintergrundbearbeitung gespeichert. Du kannst den Chat jetzt schließen."});
+  if (table && await db.prepare("SELECT 1 FROM report_queue WHERE job_id=?").bind(id).first()) return receipt();
+  if (!await runnerOnline(db)) return null;
+  const job=await db.prepare(`SELECT instruction,status,updated_at,(${expiredReportSql}) AS expired FROM agent_jobs WHERE id=?`).bind(id).first();
+  if (!job) return response({error:"Job not found"},404);
+  if (typeof job.instruction!=="string" || !job.instruction.trim() || job.instruction.length>8000)
+    return response({error:"Invalid job instruction"},400);
+  const states=await jobStates(db);
+  const expected=retry ? (job.expired ? states.running : states.failed) : "open";
+  if (job.status!==expected) return response({error:"Der Auftragsstatus hat sich geändert."},409);
+  const marker=crypto.randomUUID();
+  const writes=await db.batch([
+    db.prepare(`INSERT INTO report_queue(job_id,profile,lease)
+      SELECT id,?,? FROM agent_jobs WHERE id=? AND status=? AND updated_at IS ?
+      ON CONFLICT(job_id) DO NOTHING`).bind(profile,marker,id,expected,job.updated_at),
+    db.prepare(`UPDATE agent_jobs SET status='open',error='',updated_at=?
+      WHERE id=? AND EXISTS(SELECT 1 FROM report_queue WHERE job_id=? AND lease=?)`)
+      .bind(new Date().toISOString(),id,id,marker),
+    db.prepare(`UPDATE messages SET content=? WHERE id=? AND role='assistant'
+      AND EXISTS(SELECT 1 FROM report_queue WHERE job_id=? AND lease=?)`)
+      .bind("Dein Bericht ist zur Hintergrundbearbeitung gespeichert. Du kannst den Chat jetzt schließen.",id,id,marker)
+  ]);
+  if (writes[0].meta?.changes!==1 && !await db.prepare("SELECT 1 FROM report_queue WHERE job_id=?").bind(id).first())
+    return response({error:"Der Auftragsstatus hat sich geändert."},409);
+  return receipt();
+}
+
 export async function tick(env) {
   if (!env.DB || !env.JARVIS_BACKEND_API_KEY) throw new Error("Runner bindings missing");
   const db=env.DB;

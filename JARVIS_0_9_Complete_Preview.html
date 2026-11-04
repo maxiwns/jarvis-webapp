@@ -637,7 +637,7 @@ function renderAgentJobs(jobs){
      const response=await fetch('/api/agent-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:job.id,retry,reportProfile:window.jarvisReportProfile?.() || "standard"})});
      const data=await response.json().catch(()=>({}));
      if(!response.ok||data.success!==true)throw new Error(data.error||'Auftrag konnte nicht ausgeführt werden.');
-     feedback='Bericht wurde gespeichert.';
+     feedback=data.queued ? data.message : 'Bericht wurde gespeichert.';
     }catch(error){feedback='Ausführung fehlgeschlagen: '+error.message}
     await refreshAgentJobs(feedback);
    };

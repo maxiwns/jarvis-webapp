@@ -3,6 +3,11 @@
 Der Timer-Worker läuft ohne öffentliche Route. Er liest ausschließlich die
 Warteschlange neu angenommener, vom Chat-Planer zugelassener Berichte.
 Ein alter offener Auftrag wird durch das Deployment nicht gestartet.
+Ein ausdrücklich gestarteter oder wiederholter Bericht aus Chat oder Auftragszentrale
+wird bei aktivem Timer ebenfalls atomar eingereiht. Mehrfachklicks behalten denselben
+Warteschlangeneintrag. Bereits eingereihte Aufträge werden bei fehlendem Heartbeat
+nicht zusätzlich synchron gestartet. Die Oberfläche unterscheidet die Annahme zur
+Hintergrundbearbeitung vom fertigen Ergebnis.
 
 1. Mit Wrangler im richtigen Cloudflare-Testkonto anmelden. Die ID der **bereits
    an die Pages-Testversion gebundenen** D1 über `wrangler d1 list` nachsehen.
@@ -19,8 +24,10 @@ Ein alter offener Auftrag wird durch das Deployment nicht gestartet.
 
 Der Timer prüft minütlich maximal drei Aufträge. Eine Reservierung gilt vier
 Minuten. Nach einer unterbrochenen Reservierung übernimmt ein späterer Tick.
-Maximal drei automatische Bearbeitungsversuche; eine bestätigte Werkzeugstörung
-wird als Fehler sichtbar. Eine nach dem Speichern des Berichts unterbrochene
+Maximal drei automatische Bearbeitungsversuche. Bei einem Berichtstimeout oder
+Backend-HTTP 429/502/503/504 wartet die Warteschlange zwei Minuten vor dem nächsten
+Versuch. Andere bestätigte Werkzeugstörungen werden ohne automatische Wiederholung
+als Fehler sichtbar. Eine nach dem Speichern des Berichts unterbrochene
 Chat-Aktualisierung wird ohne erneuten Modellaufruf nachgeholt. Bei einem Abbruch
 während des externen Modellaufrufs kann ein neuer Versuch erneut KI-Kontingent
 verbrauchen. Es wird höchstens ein Ergebnis pro Auftrag als abgeschlossen gespeichert.

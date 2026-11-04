@@ -91,6 +91,8 @@ test("Briefing berücksichtigt Berliner Mitternacht, drei Fälligkeitstage und e
   assert.equal(report.today,"2026-03-29");
   for(const title of ["Gestern","Heute","Dienstag","Wichtig","Neuer Bericht","Fehlgeschlagene Recherche"]) assert.ok(report.text.includes(title));
   assert.doesNotMatch(report.text,/Zu spät im Zeitraum|Schon fertig/);
+  assert.match(report.text,/Fehlgeschlagene Recherche · Fehlgeschlagen/);
+  assert.doesNotMatch(report.text,/Neuer Bericht · Fehlgeschlagen/);
   assert.doesNotMatch((await briefing(f.env.DB,1,now)).text,/Dienstag/);
 });
 test("Briefing per Chat speichert Antwort ohne KI-Aufruf und ohne Auftrag",async t=>{
@@ -153,6 +155,44 @@ test("Temporärer Backendausfall wird begrenzt ohne Browser erneut versucht",asy
   fail=false;
   await tick(f.env);
   assert.equal((await f.list())[0].status,"done");
+});
+
+test("Manuelle Wiederholung wird atomar eingereiht und ohne Browser abgeschlossen",async t=>{
+  let attempts=0;
+  const f=fixture(t,{report:()=>++attempts===1?"":"Wiederhergestellter Bericht"});
+  await f.turn();
+  assert.equal((await f.list())[0].status,"error");
+  await tick(f.env);
+  const replies=await Promise.all([f.start(true),f.start(true)]);
+  assert.deepEqual(replies.map(r=>r.status),[202,202]);
+  assert.equal((await replies[0].json()).queued,true);
+  assert.equal(attempts,1);
+  assert.equal(f.db.prepare("SELECT count(*) n FROM report_queue").get().n,1);
+  assert.equal((await f.list())[0].status,"open");
+  assert.match((await (await f.messages()).json()).messages[1].content,/Hintergrundbearbeitung/);
+  await tick(f.env);
+  assert.equal(attempts,2);
+  assert.equal((await f.list())[0].status,"done");
+  assert.equal((await f.start(true)).status,409);
+});
+
+test("Timer-Ausfall erlaubt keinen synchronen Doppelstart eines eingereihten Auftrags",async t=>{
+  const f=fixture(t);await tick(f.env);await f.turn();
+  f.db.exec("UPDATE report_runner_health SET seen_at=datetime('now','-10 minutes')");
+  const response=await f.start();
+  assert.equal(response.status,202);
+  assert.equal((await response.json()).queued,true);
+  assert.equal(f.toolCalls.length,0);
+  assert.equal(f.db.prepare("SELECT attempts FROM report_queue").get().attempts,0);
+});
+
+test("Manuelle Wiederaufnahme reserviert einen verwaisten Lauf neu",async t=>{
+  const f=fixture(t);await f.turn();await tick(f.env);
+  f.db.exec("UPDATE agent_jobs SET status='in_progress',updated_at=datetime('now','-6 minutes')");
+  assert.equal((await f.start(true)).status,202);
+  await tick(f.env);
+  assert.equal((await f.list())[0].status,"done");
+  assert.equal(f.toolCalls.length,2);
 });
 
 test("Autonome Webrecherche: Suche, Auswahl, Lesen, Bericht und belegte Links",async t=>{
