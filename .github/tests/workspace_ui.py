@@ -106,7 +106,38 @@ with sync_playwright() as pw:
         })))
         page.clock.run_for(15010)
         expect(page.locator("#agent-jobs-list .pill")).to_have_text("done")
+        skill_rows = []
+        def skills_api(route):
+            if route.request.method == "POST":
+                body = route.request.post_data_json
+                if body["action"] == "create":
+                    skill_rows.append({"id": "test-skill", "title": body["title"], "goal": body["goal"], "version": 0, "active_version": None, "paused": 0})
+                elif body["action"] == "learn":
+                    skill_rows[0].update(version=1, learning_status="done", material={"text": "Übungsanleitung: Risiken und Kosten erklären."})
+                elif body["action"] == "approve":
+                    skill_rows[0]["active_version"] = 1
+                elif body["action"] == "pause":
+                    skill_rows[0]["paused"] = 1
+                route.fulfill(content_type="application/json", body='{"success":true}')
+            else:
+                route.fulfill(content_type="application/json", body=json.dumps({"skills": skill_rows}))
+        page.route("**/api/skills", skills_api)
+        nav.get_by_role("button", name="Skills").click()
+        page.get_by_role("button", name="Vorlage: Trading lernen").click()
+        assert "Keine Echtgeld-Trades" in page.locator("#skill-goal").input_value()
+        expect(page.locator("#skill-title")).to_have_value("Daytrading verstehen und simulieren")
+        page.get_by_role("button", name="Lernziel speichern").click()
+        page.get_by_role("button", name="Lernanleitung erstellen").click()
+        page.get_by_text("Arbeitsanleitung prüfen", exact=True).click()
+        expect(page.locator("#skills-list")).to_contain_text("Risiken und Kosten erklären")
+        page.on("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name="Geprüfte Version aktivieren").click()
+        expect(page.get_by_role("button", name="Skill auf Übungsaufgabe anwenden")).to_be_visible()
+        page.get_by_role("button", name="Skill pausieren").click()
+        expect(page.locator("#skills-list")).to_contain_text("Pausiert")
+        expect(page.get_by_role("button", name="Skill auf Übungsaufgabe anwenden")).to_have_count(0)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
         assert not errors, errors
-        print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe, Warteschlange und Layout")
+        print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe, Warteschlange, Skills und Layout")
         page.close()
     browser.close()

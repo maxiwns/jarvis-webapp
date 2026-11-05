@@ -98,12 +98,14 @@ export async function onRequestDelete({ request, env }) {
   try {
     const queueGuard = await hasQueue(env.DB)
       ? " AND NOT EXISTS (SELECT 1 FROM report_queue WHERE job_id = agent_jobs.id)" : "";
+    const skillTable=await env.DB.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='jarvis_skill_versions'").first();
+    const skillGuard=skillTable ? " AND NOT EXISTS (SELECT 1 FROM jarvis_skill_versions WHERE job_id=agent_jobs.id)" : "";
     const deletion = await env.DB.prepare(
       `DELETE FROM agent_jobs WHERE id = ? AND status = ?
-       AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = agent_jobs.id)${queueGuard}`
+       AND NOT EXISTS (SELECT 1 FROM brain_entries WHERE source_job_id = agent_jobs.id)${queueGuard}${skillGuard}`
     ).bind(id, status).run();
     if (deletion.meta?.changes !== 1) {
-      return reply({ error: "Der Eintrag wird noch im Hintergrund bearbeitet, wurde geändert, bereits gelöscht oder dient als Quelle im Second Brain." }, 409);
+      return reply({ error: "Der Eintrag wird noch bearbeitet, wurde geändert, bereits gelöscht oder dient als Quelle für Wissen oder Skills." }, 409);
     }
     return reply({ success: true });
   } catch {

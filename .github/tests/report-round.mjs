@@ -11,6 +11,7 @@ import { onRequestPost as saveKnowledge } from "../../functions/api/brain-save.j
 import { briefing } from "../../functions/_lib/briefing.js";
 import { tick } from "../../functions/_lib/background.js";
 import worker from "../../../backend/worker.js";
+import {onRequestGet as getSkills,onRequestPost as postSkill} from "../../functions/api/skills.js";
 
 function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse, tavily } = {}) {
   const db = new DatabaseSync(":memory:");
@@ -77,6 +78,47 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
     document:(id=chatId)=>list({env,request:new Request("https://local/api/agent-jobs?jobId="+turnId+"&chatId="+id)}),
     list:async()=> (await (await list({env})).json()).jobs, turnId};
 }
+
+const skillRequest=(f,body,origin='https://local')=>postSkill({env:f.env,request:new Request('https://local/api/skills',{
+  method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)})});
+test('Skills: lernen, prüfen, anwenden, verbessern und pausieren bleiben getrennt',async t=>{
+  const f=fixture(t);
+  const created=await skillRequest(f,{action:'create',title:'Checklisten',goal:'Wiederverwendbare Checklisten für Projekte schreiben.'});
+  assert.equal(created.status,201);const {id}=await created.json();
+  assert.equal((await skillRequest(f,{action:'run',id,input:'Eine Projektcheckliste erstellen.'})).status,409);
+  assert.equal((await skillRequest(f,{action:'learn',id,version:0})).status,200);
+  let skills=(await (await getSkills({env:f.env})).json()).skills;
+  assert.equal(skills[0].active_version,null);assert.equal(skills[0].learning_status,'done');
+  assert.equal((await skillRequest(f,{action:'approve',id,version:1})).status,200);
+  assert.equal((await skillRequest(f,{action:'run',id,input:'Eine Projektcheckliste erstellen.'})).status,200);
+  assert.match(f.toolCalls.at(-1).args.instruction,/Checklisten machen Abläufe/);
+  assert.equal((await skillRequest(f,{action:'learn',id,version:1,feedback:'Prüfpunkte ergänzen.'})).status,200);
+  skills=(await (await getSkills({env:f.env})).json()).skills;
+  assert.equal(skills[0].version,2);assert.equal(skills[0].active_version,1);
+  assert.equal((await skillRequest(f,{action:'approve',id,version:1})).status,409);
+  await skillRequest(f,{action:'pause',id});
+  assert.equal((await skillRequest(f,{action:'run',id,input:'Eine Projektcheckliste erstellen.'})).status,409);
+  assert.equal(f.db.prepare('SELECT count(*) n FROM jarvis_skill_versions').get().n,2);
+});
+test('Skills: Hintergrundlernen ist vor Abschluss nicht aktivierbar und gegen Doppelklick geschützt',async t=>{
+  const f=fixture(t);await tick(f.env);
+  const {id}=await (await skillRequest(f,{action:'create',title:'Lernziel',goal:'Strukturierte Arbeitsanleitungen erstellen.'})).json();
+  assert.equal((await skillRequest(f,{action:'learn',id,version:0})).status,202);
+  assert.equal((await skillRequest(f,{action:'learn',id,version:0})).status,409);
+  assert.equal((await skillRequest(f,{action:'approve',id,version:1})).status,409);
+  await tick(f.env);
+  assert.equal((await skillRequest(f,{action:'approve',id,version:1})).status,200);
+  const job=f.db.prepare('SELECT job_id FROM jarvis_skill_versions').get().job_id;
+  assert.equal((await deleteJob({env:f.env,request:new Request(`https://local/api/agent-jobs?jobId=${job}&status=done`,{
+    method:'DELETE',headers:{Origin:'https://local'}})})).status,409);
+});
+test('Skills: fremde Herkunft und nicht unterstützte Handelsaktionen werden abgelehnt',async t=>{
+  const f=fixture(t);
+  assert.equal((await skillRequest(f,{action:'create',title:'Test',goal:'Ein ausreichend langes Lernziel.'},'https://foreign.test')).status,403);
+  const {id}=await (await skillRequest(f,{action:'create',title:'Trading',goal:'Daytrading Grundlagen ohne echte Orders.'})).json();
+  assert.equal((await skillRequest(f,{action:'trade',id})).status,400);
+  assert.equal(f.toolCalls.length,0);
+});
 
 test("Briefing berücksichtigt Berliner Mitternacht, drei Fälligkeitstage und echte Auftragsdaten",async t=>{
   const f=fixture(t);
