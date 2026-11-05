@@ -692,11 +692,31 @@
     renderList();
   }
 
-  async function openChat(id) {
-    if (busy) return;
-    cancelDictation();
+  let progressTimer;
+  let pendingProgress = false;
+  let messageSnapshot = "";
+  let progressLoading = false;
+  function scheduleProgress() {
+    clearTimeout(progressTimer);
+    if (!pendingProgress) return;
+    progressTimer = setTimeout(async () => {
+      if (!document.hidden && !page.hidden && !busy && !dictation && activeId && !progressLoading) {
+        progressLoading = true;
+        try { await openChat(activeId, true); }
+        finally { progressLoading = false; }
+      }
+      scheduleProgress();
+    }, 15000);
+  }
 
-    const version = ++selectionVersion;
+  async function openChat(id, background = false) {
+    if (busy) return;
+    if (!background) {
+    cancelDictation();
+    clearTimeout(progressTimer);
+    pendingProgress = false;
+    messageSnapshot = "";
+    ++selectionVersion;
     activeId = id;
     toggleHistory(false);
     root.classList.remove("jr-reading");
@@ -708,6 +728,8 @@
     messages.replaceChildren();
     send.disabled = true;
     renderList();
+    }
+    const version = selectionVersion;
 
     try {
       const data = await api(
@@ -715,7 +737,15 @@
         encodeURIComponent(id)
       );
 
-      if (version !== selectionVersion) return;
+      if (version !== selectionVersion || activeId !== id || (background && (busy || dictation))) return;
+      pendingProgress = (data.messages || []).some(m => m.job_queue ||
+        (["running","processing","in_progress"].includes(m.job_status) && !m.job_expired));
+      const snapshot = JSON.stringify(data.messages || []);
+      if (background && snapshot === messageSnapshot) return;
+      messageSnapshot = snapshot;
+      const scrollTop = messages.scrollTop;
+      const nearBottom = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 60;
+      messages.replaceChildren();
 
       let latest = null;
       for (const message of data.messages || []) {
@@ -766,7 +796,7 @@
         }
         messages.append(bubble);
       }
-      if (latest && window.matchMedia("(min-width: 1001px)").matches) latest(false);
+      if (!background && latest && window.matchMedia("(min-width: 1001px)").matches) latest(false);
 
       if (!data.messages?.length) {
         messages.append(node(
@@ -776,17 +806,18 @@
         ));
       }
 
-      messages.scrollTop = messages.scrollHeight;
-      setStatus("Cloud-Chat geladen.");
+      messages.scrollTop = !background || nearBottom ? messages.scrollHeight : scrollTop;
+      setStatus(background ? "Auftragsfortschritt aktualisiert." : "Cloud-Chat geladen.");
 
     } catch (error) {
       if (version === selectionVersion) {
         setStatus(
-          "Laden fehlgeschlagen: " + error.message
+          (background ? "Fortschritt derzeit nicht erreichbar. Gespeicherte Anzeige bleibt erhalten: " : "Laden fehlgeschlagen: ") + error.message
         );
       }
     } finally {
       if (version === selectionVersion) {
+        scheduleProgress();
         send.disabled = busy || !activeId;
       microphone.disabled = !Recognition || !window.isSecureContext || busy || !activeId;
       }

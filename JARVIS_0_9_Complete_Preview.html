@@ -665,15 +665,31 @@ function renderAgentJobs(jobs){
   root.append(card);
  });
 }
-async function refreshAgentJobs(feedback='Cloud-Aufträge geladen.'){
- const status=$('#agent-jobs-status');status.textContent='Cloud-Aufträge werden geladen …';
+let jobsRefreshVersion=0, jobsProgressTimer, jobsPending=false, jobsSnapshot='';
+function scheduleJobProgress(){
+ clearTimeout(jobsProgressTimer);
+ if(!jobsPending)return;
+ jobsProgressTimer=setTimeout(()=>{
+  if(!document.hidden && current==='orders') refreshAgentJobs('Auftragsfortschritt aktualisiert.',true);
+  else scheduleJobProgress();
+ },15000);
+}
+async function refreshAgentJobs(feedback='Cloud-Aufträge geladen.',background=false){
+ const version=++jobsRefreshVersion;
+ clearTimeout(jobsProgressTimer);
+ const status=$('#agent-jobs-status');if(!background)status.textContent='Cloud-Aufträge werden geladen …';
  try{
   const response=await fetch('/api/agent-jobs',{headers:{'Accept':'application/json'}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok||data.success!==true)throw new Error(data.error||'Aufträge konnten nicht geladen werden.');
-  renderAgentJobs(Array.isArray(data.jobs)?data.jobs:[]);
+  if(version!==jobsRefreshVersion)return;
+  const jobs=Array.isArray(data.jobs)?data.jobs:[];
+  jobsPending=jobs.some(job=>job.queue || (['running','processing','in_progress'].includes(job.status)&&!job.expired));
+  const snapshot=JSON.stringify(jobs);
+  if(snapshot!==jobsSnapshot){renderAgentJobs(jobs);jobsSnapshot=snapshot;}
   status.textContent=feedback;
- }catch(error){$('#agent-jobs-list').replaceChildren();status.textContent='Cloud-Aufträge nicht verfügbar: '+error.message}
+ }catch(error){if(version===jobsRefreshVersion)status.textContent='Aktualisierung nicht möglich. Bisherige Anzeige bleibt erhalten: '+error.message}
+ finally{if(version===jobsRefreshVersion)scheduleJobProgress();}
 }
 $('#agent-jobs-refresh').onclick=()=>refreshAgentJobs();
 function renderOrders(){

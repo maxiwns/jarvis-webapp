@@ -41,6 +41,7 @@ with sync_playwright() as pw:
     browser = pw.chromium.launch(channel="chrome", headless=True)
     for width, height in [(1440, 900), (820, 1180), (390, 844)]:
         page = browser.new_page(viewport={"width": width, "height": height})
+        page.clock.install()
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.route("**/*", serve)
@@ -79,6 +80,14 @@ with sync_playwright() as pw:
         page.locator("#jr-history").get_by_role("button", name="Recherche", exact=True).click()
         expect(page.locator(".jcm-note").filter(has_text=queue["label"])).to_be_visible()
         expect(page.get_by_role("button", name="Bericht erneut starten", exact=True)).to_have_count(0)
+        page.locator(".jcm-composer-input").fill("Mein ungesendeter Entwurf")
+        page.route("**/api/messages?*", lambda route: route.fulfill(content_type="application/json", body=json.dumps({"messages": [
+            {"role": "assistant", "content": "Dein Bericht ist fertig.", "job_id": "r1", "job_status": "done",
+             "report_id": "r1", "report_title": TITLE, "job_queue": None}
+        ]})))
+        page.clock.run_for(15010)
+        expect(page.get_by_role("button", name="Bericht öffnen", exact=True)).to_be_visible()
+        expect(page.locator(".jcm-composer-input")).to_have_value("Mein ungesendeter Entwurf")
         page.route("**/api/agent-jobs", lambda route: route.fulfill(content_type="application/json", body=json.dumps({
             "success": True, "jobs": [{"id": "r1", "title": TITLE, "status": "error", "queue": queue}]
         })))
@@ -88,6 +97,15 @@ with sync_playwright() as pw:
         page.locator("#agent-jobs-refresh").click()
         expect(page.locator("#agent-jobs-list .pill")).to_have_text(queue["label"])
         expect(page.locator("#agent-jobs-list button")).to_have_count(0)
+        page.route("**/api/agent-jobs", lambda route: route.fulfill(status=503, content_type="application/json", body='{"error":"Testausfall"}'))
+        page.clock.run_for(15010)
+        expect(page.locator("#agent-jobs-status")).to_contain_text("Bisherige Anzeige bleibt erhalten")
+        expect(page.locator("#agent-jobs-list .pill")).to_have_text(queue["label"])
+        page.route("**/api/agent-jobs", lambda route: route.fulfill(content_type="application/json", body=json.dumps({
+            "success": True, "jobs": [{"id": "r1", "title": TITLE, "status": "done", "queue": None, "result": "Fertig"}]
+        })))
+        page.clock.run_for(15010)
+        expect(page.locator("#agent-jobs-list .pill")).to_have_text("done")
         assert not errors, errors
         print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe, Warteschlange und Layout")
         page.close()
