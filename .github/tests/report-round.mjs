@@ -12,6 +12,7 @@ import { briefing } from "../../functions/_lib/briefing.js";
 import { tick } from "../../functions/_lib/background.js";
 import worker from "../../../backend/worker.js";
 import {onRequestGet as getSkills,onRequestPost as postSkill} from "../../functions/api/skills.js";
+import {onRequestPost as development} from "../../functions/api/development.js";
 
 function fixture(t, { action = "create_order", tools = ["reports"], report, readPage, wikiResponse, tavily } = {}) {
   const db = new DatabaseSync(":memory:");
@@ -81,6 +82,13 @@ function fixture(t, { action = "create_order", tools = ["reports"], report, read
 
 const skillRequest=(f,body,origin='https://local')=>postSkill({env:f.env,request:new Request('https://local/api/skills',{
   method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)})});
+test('Codevorschlag verwendet nur den Berichtsdienst und wird als Entwicklungsauftrag gespeichert',async t=>{
+  const f=fixture(t);const response=await development({env:f.env,request:new Request('https://local/api/development',{
+    method:'POST',headers:{Origin:'https://local','Content-Type':'application/json'},body:JSON.stringify({action:'propose',task:'Eine Funktion zum Zählen von Wörtern entwickeln.'})})});
+  assert.equal(response.status,200);
+  const {jobId}=await response.json();assert.equal(f.db.prepare('SELECT source FROM agent_jobs WHERE id=?').get(jobId).source,'development');
+  assert.deepEqual(f.toolCalls.map(c=>c.tool),['reports']);
+});
 test('Skills: lernen, prüfen, anwenden, verbessern und pausieren bleiben getrennt',async t=>{
   const f=fixture(t);
   const created=await skillRequest(f,{action:'create',title:'Checklisten',goal:'Wiederverwendbare Checklisten für Projekte schreiben.'});

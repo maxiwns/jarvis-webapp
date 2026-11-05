@@ -1,0 +1,27 @@
+name: Isolated code skill tests
+on:
+  push:
+    branches: ['jarvis/code-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test pure JavaScript in an isolated container
+        run: |
+          test -f src/skill.js
+          test -f test/skill.test.mjs
+          docker pull node:24-alpine
+          timeout 60s docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 \
+            --memory 128m --cpus 1 --user 65534:65534 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            -v "$PWD/src:/work/src:ro" -v "$PWD/test:/work/test:ro" \
+            -w /work node:24-alpine \
+            node --experimental-default-type=module --test test/skill.test.mjs

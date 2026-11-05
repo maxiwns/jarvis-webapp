@@ -136,6 +136,26 @@ with sync_playwright() as pw:
         page.get_by_role("button", name="Skill pausieren").click()
         expect(page.locator("#skills-list")).to_contain_text("Pausiert")
         expect(page.get_by_role("button", name="Skill auf Übungsaufgabe anwenden")).to_have_count(0)
+        def development_api(route):
+            if route.request.method == "POST":
+                if route.request.post_data_json["action"] == "publish":
+                    route.fulfill(status=409,content_type="application/json",body='{"error":"GitHub-Schreibzugriff fehlt."}')
+                else:
+                    route.fulfill(content_type="application/json",body='{"success":true,"jobId":"lab-job"}')
+            elif "jobId=" in route.request.url:
+                route.fulfill(content_type="application/json",body=json.dumps({"status":"done","result":"window.labExecuted = true;"}))
+            else:
+                route.fulfill(content_type="application/json",body=json.dumps({"github":{"connected":False,"reason":"GitHub-Zugang fehlt."},"cloudflare":{"connected":False,"reason":"Pages-Zugang fehlt."}}))
+        page.route("**/api/development**", development_api)
+        page.get_by_text("Code-Labor · GitHub & Cloudflare",exact=True).click()
+        page.get_by_role("button",name="Verbindungen prüfen").click()
+        expect(page.locator("#skills")).to_contain_text("GitHub-Zugang fehlt.")
+        page.get_by_label("Entwicklungsziel",exact=True).fill("Eine reine Funktion für Stichwörter erstellen.")
+        page.get_by_role("button",name="Codevorschlag erstellen",exact=True).click()
+        expect(page.locator("#skills pre")).to_have_text("window.labExecuted = true;")
+        assert page.evaluate("window.labExecuted === undefined")
+        page.get_by_role("button",name="Als GitHub-Entwurf ablegen").click()
+        expect(page.locator("#skills")).to_contain_text("GitHub-Schreibzugriff fehlt.")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
         assert not errors, errors
         print(f"OK {width}x{height}: Gespräch, Bericht, Quellen, Sprachausgabe, Warteschlange, Skills und Layout")
